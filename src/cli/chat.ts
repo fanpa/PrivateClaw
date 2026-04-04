@@ -13,7 +13,6 @@ import {
 
 export async function startChat(
   sessionId?: string,
-  restrictedFetch?: typeof globalThis.fetch,
 ): Promise<void> {
   const repo = new SessionRepository();
   let session = sessionId
@@ -51,7 +50,6 @@ export async function startChat(
         const result = await runAgentTurn({
           messages,
           onChunk: renderChunk,
-          fetch: restrictedFetch,
         });
 
         renderNewLine();

@@ -23,10 +23,10 @@ export function createApp(): Command {
     .action(async (opts: { config: string; session?: string }) => {
       try {
         const config = loadConfig(opts.config);
-        initProvider(config.provider);
-        createDatabase(config.session.dbPath);
         const restrictedFetch = createRestrictedFetch(config.security.allowedDomains);
-        await startChat(opts.session, restrictedFetch);
+        initProvider(config.provider, restrictedFetch);
+        createDatabase(config.session.dbPath);
+        await startChat(opts.session);
       } catch (err) {
         renderError(err instanceof Error ? err.message : String(err));
         process.exit(1);

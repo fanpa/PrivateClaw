@@ -8,12 +8,21 @@ export interface ProviderResult {
   provider: string;
 }
 
-export function createProvider(config: ProviderConfig): ProviderResult {
+export interface CreateProviderOptions {
+  config: ProviderConfig;
+  fetch?: typeof globalThis.fetch;
+}
+
+export function createProvider(configOrOptions: ProviderConfig | CreateProviderOptions): ProviderResult {
+  const config = 'config' in configOrOptions ? configOrOptions.config : configOrOptions;
+  const customFetch = 'config' in configOrOptions ? configOrOptions.fetch : undefined;
+
   switch (config.type) {
     case 'openai': {
       const openai = createOpenAI({
         baseURL: config.baseURL,
         apiKey: config.apiKey ?? '',
+        fetch: customFetch,
       });
       return { model: openai(config.model), provider: 'openai' };
     }
@@ -21,6 +30,7 @@ export function createProvider(config: ProviderConfig): ProviderResult {
       const anthropic = createAnthropic({
         baseURL: config.baseURL,
         apiKey: config.apiKey ?? '',
+        fetch: customFetch,
       });
       return { model: anthropic(config.model), provider: 'anthropic' };
     }
@@ -30,6 +40,7 @@ export function createProvider(config: ProviderConfig): ProviderResult {
       const ollama = createOpenAI({
         baseURL,
         apiKey: 'ollama',
+        fetch: customFetch,
       });
       return { model: ollama(config.model), provider: 'ollama' };
     }

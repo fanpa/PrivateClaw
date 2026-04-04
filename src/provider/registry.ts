@@ -5,8 +5,8 @@ import type { ProviderConfig } from '../config/schema.js';
 let currentModel: LanguageModelV1 | null = null;
 let currentProviderName: string | null = null;
 
-export function initProvider(config: ProviderConfig): void {
-  const { model, provider } = createProvider(config);
+export function initProvider(config: ProviderConfig, fetch?: typeof globalThis.fetch): void {
+  const { model, provider } = createProvider(fetch ? { config, fetch } : config);
   currentModel = model;
   currentProviderName = provider;
 }
