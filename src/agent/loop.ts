@@ -1,6 +1,6 @@
 import { streamText } from 'ai';
 import type { CoreMessage, LanguageModelV1 } from 'ai';
-import { getModel } from '../provider/registry.js';
+import { getModel, getRestrictedFetch } from '../provider/registry.js';
 import { getBuiltinTools } from '../tools/registry.js';
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_MAX_STEPS } from './types.js';
 
@@ -10,7 +10,6 @@ export interface RunAgentTurnOptions {
   maxSteps?: number;
   model?: LanguageModelV1;
   onChunk?: (chunk: string) => void;
-  fetch?: typeof globalThis.fetch;
 }
 
 export interface AgentTurnResult {
@@ -31,9 +30,8 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     model: model ?? getModel(),
     system: systemPrompt,
     messages,
-    tools: getBuiltinTools(),
+    tools: getBuiltinTools(getRestrictedFetch()),
     maxSteps,
-    ...(options.fetch ? { fetch: options.fetch } : {}),
   });
 
   let fullText = '';

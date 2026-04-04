@@ -4,11 +4,13 @@ import type { ProviderConfig } from '../config/schema.js';
 
 let currentModel: LanguageModelV1 | null = null;
 let currentProviderName: string | null = null;
+let currentFetch: typeof globalThis.fetch | null = null;
 
 export function initProvider(config: ProviderConfig, fetch?: typeof globalThis.fetch): void {
   const { model, provider } = createProvider(fetch ? { config, fetch } : config);
   currentModel = model;
   currentProviderName = provider;
+  currentFetch = fetch ?? null;
 }
 
 export function getModel(): LanguageModelV1 {
@@ -23,4 +25,8 @@ export function getProviderName(): string {
     throw new Error('Provider not initialized. Call initProvider() first.');
   }
   return currentProviderName;
+}
+
+export function getRestrictedFetch(): typeof globalThis.fetch {
+  return currentFetch ?? globalThis.fetch;
 }
