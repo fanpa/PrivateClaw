@@ -1,6 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { createOllama } from 'ollama-ai-provider';
 import type { LanguageModelV1 } from 'ai';
 import type { ProviderConfig } from '../config/schema.js';
 
@@ -26,8 +25,11 @@ export function createProvider(config: ProviderConfig): ProviderResult {
       return { model: anthropic(config.model), provider: 'anthropic' };
     }
     case 'ollama': {
-      const ollama = createOllama({
-        baseURL: config.baseURL,
+      // Ollama exposes an OpenAI-compatible API at /v1
+      const baseURL = config.baseURL.replace(/\/api\/?$/, '/v1');
+      const ollama = createOpenAI({
+        baseURL,
+        apiKey: 'ollama',
       });
       return { model: ollama(config.model), provider: 'ollama' };
     }
