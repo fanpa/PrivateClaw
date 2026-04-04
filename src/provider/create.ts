@@ -24,7 +24,8 @@ export function createProvider(configOrOptions: ProviderConfig | CreateProviderO
         apiKey: config.apiKey ?? '',
         fetch: customFetch,
       });
-      return { model: openai(config.model), provider: 'openai' };
+      // Use .chat() for Chat Completions API (broader compatibility with OpenAI-compatible servers)
+      return { model: openai.chat(config.model), provider: 'openai' };
     }
     case 'anthropic': {
       const anthropic = createAnthropic({
@@ -36,13 +37,15 @@ export function createProvider(configOrOptions: ProviderConfig | CreateProviderO
     }
     case 'ollama': {
       // Ollama exposes an OpenAI-compatible API at /v1
+      // compatibility: 'compatible' forces Chat Completions API instead of Responses API
       const baseURL = config.baseURL.replace(/\/api\/?$/, '/v1');
       const ollama = createOpenAI({
         baseURL,
         apiKey: 'ollama',
         fetch: customFetch,
       });
-      return { model: ollama(config.model), provider: 'ollama' };
+      // Use .chat() for Chat Completions API (Ollama doesn't support Responses API)
+      return { model: ollama.chat(config.model), provider: 'ollama' };
     }
     default:
       throw new Error(`Unsupported provider: ${(config as ProviderConfig).type}`);
