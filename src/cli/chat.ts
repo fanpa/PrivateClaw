@@ -53,7 +53,13 @@ export async function startChat(
           messages,
           onChunk: renderChunk,
           onToolCall: (name, args) => renderToolCall(name, args),
-          onToolResult: (name, result) => renderToolResult(name, result),
+          onToolResult: (name, result) => {
+            renderToolResult(name, result);
+            const res = result as Record<string, unknown> | undefined;
+            if (res?.error) {
+              renderError(`Tool "${name}" failed: ${res.error}`);
+            }
+          },
         });
 
         renderNewLine();

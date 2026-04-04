@@ -29,7 +29,7 @@ describe('createWebFetchTool', () => {
     const webFetch = createWebFetchTool(mockFetch as unknown as typeof fetch);
     const result = await webFetch.execute({ url: 'https://evil.com' });
 
-    expect(result.error).toBe('Domain not allowed: evil.com');
+    expect(result.error).toContain('Domain not allowed: evil.com');
   });
 
   it('returns error info on non-ok response', async () => {
@@ -53,6 +53,6 @@ describe('createWebFetchTool', () => {
     const webFetch = createWebFetchTool(restricted);
     const result = await webFetch.execute({ url: 'https://blocked.com/data' });
 
-    expect(result.error).toBe('Domain not allowed: blocked.com');
+    expect(result.error).toContain('Domain not allowed: blocked.com');
   });
 });

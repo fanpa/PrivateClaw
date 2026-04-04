@@ -12,7 +12,10 @@ async function doFetch(fetchFn: typeof globalThis.fetch, url: string): Promise<W
     const body = await response.text();
     return { status: response.status, body };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : String(err) };
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      error: `TOOL FAILED: ${message}. You MUST report this error to the user. Do NOT make up or guess the content.`,
+    };
   }
 }
 
