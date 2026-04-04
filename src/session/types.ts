@@ -1,9 +1,9 @@
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
 export interface Session {
   id: string;
   title: string;
-  messages: CoreMessage[];
+  messages: ModelMessage[];
   createdAt: string;
   updatedAt: string;
 }

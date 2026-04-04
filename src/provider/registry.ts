@@ -1,8 +1,8 @@
-import type { LanguageModelV1 } from 'ai';
+import type { LanguageModel } from 'ai';
 import { createProvider } from './create.js';
 import type { ProviderConfig } from '../config/schema.js';
 
-let currentModel: LanguageModelV1 | null = null;
+let currentModel: LanguageModel | null = null;
 let currentProviderName: string | null = null;
 let currentFetch: typeof globalThis.fetch | null = null;
 
@@ -13,7 +13,7 @@ export function initProvider(config: ProviderConfig, fetch?: typeof globalThis.f
   currentFetch = fetch ?? null;
 }
 
-export function getModel(): LanguageModelV1 {
+export function getModel(): LanguageModel {
   if (!currentModel) {
     throw new Error('Provider not initialized. Call initProvider() first.');
   }

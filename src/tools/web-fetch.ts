@@ -1,4 +1,3 @@
-import { tool } from 'ai';
 import { z } from 'zod';
 
 interface WebFetchResult {
@@ -17,19 +16,21 @@ async function doFetch(fetchFn: typeof globalThis.fetch, url: string): Promise<W
   }
 }
 
+const parameters = z.object({
+  url: z.string().describe('The URL to fetch'),
+});
+
 export function createWebFetchTool(fetchFn: typeof globalThis.fetch) {
   return {
     name: 'web_fetch' as const,
     description: 'Fetch a URL and return the response body. Respects domain whitelist.',
-    tool: tool({
+    tool: {
       description: 'Fetch a URL and return the response body. Respects domain whitelist.',
-      parameters: z.object({
-        url: z.string().describe('The URL to fetch'),
-      }),
-      execute: async ({ url }): Promise<WebFetchResult> => {
+      parameters,
+      execute: async ({ url }: z.infer<typeof parameters>): Promise<WebFetchResult> => {
         return doFetch(fetchFn, url);
       },
-    }),
+    },
     execute: async (params: { url: string }): Promise<WebFetchResult> => {
       return doFetch(fetchFn, params.url);
     },

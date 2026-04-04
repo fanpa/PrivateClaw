@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runAgentTurn } from '../../src/agent/loop.js';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
 vi.mock('ai', async () => {
   const actual = await vi.importActual('ai');
@@ -8,8 +8,8 @@ vi.mock('ai', async () => {
     ...actual,
     streamText: vi.fn().mockReturnValue({
       fullStream: (async function* () {
-        yield { type: 'text-delta', textDelta: 'Hello, ' };
-        yield { type: 'text-delta', textDelta: 'world!' };
+        yield { type: 'text-delta', text: 'Hello, ' };
+        yield { type: 'text-delta', text: 'world!' };
       })(),
       text: Promise.resolve('Hello, world!'),
       response: Promise.resolve({
@@ -22,7 +22,7 @@ vi.mock('ai', async () => {
 
 describe('runAgentTurn', () => {
   it('returns streamed text from the agent', async () => {
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       { role: 'user', content: 'Hi there' },
     ];
 

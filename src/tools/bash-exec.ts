@@ -1,4 +1,3 @@
-import { tool } from 'ai';
 import { z } from 'zod';
 import { spawnSync } from 'node:child_process';
 
@@ -22,19 +21,21 @@ function executeBash(command: string, timeout?: number): BashResult {
   };
 }
 
+const parameters = z.object({
+  command: z.string().describe('The bash command to execute'),
+  timeout: z.number().optional().describe('Timeout in milliseconds (default: 30000)'),
+});
+
 export const bashExecTool = {
   name: 'bash_exec' as const,
   description: 'Execute a bash command and return stdout, stderr, and exit code.',
-  tool: tool({
+  tool: {
     description: 'Execute a bash command and return stdout, stderr, and exit code.',
-    parameters: z.object({
-      command: z.string().describe('The bash command to execute'),
-      timeout: z.number().optional().describe('Timeout in milliseconds (default: 30000)'),
-    }),
-    execute: async ({ command, timeout }): Promise<BashResult> => {
+    parameters,
+    execute: async ({ command, timeout }: z.infer<typeof parameters>): Promise<BashResult> => {
       return executeBash(command, timeout);
     },
-  }),
+  },
   execute: async (params: { command: string; timeout?: number }): Promise<BashResult> => {
     return executeBash(params.command, params.timeout);
   },

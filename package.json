@@ -5,11 +5,13 @@
   "type": "module",
   "main": "dist/src/index.js",
   "bin": {
-    "privateclaw": "./bin/privateclaw.ts"
+    "privateclaw": "./dist/bin/privateclaw.js"
   },
   "scripts": {
     "dev": "tsx bin/privateclaw.ts",
     "build": "tsc -p tsconfig.build.json",
+    "postbuild": "chmod +x dist/bin/privateclaw.js",
+    "setup": "pnpm build && pnpm link --global",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/ tests/ bin/"

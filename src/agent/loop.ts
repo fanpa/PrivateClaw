@@ -1,14 +1,14 @@
-import { streamText } from 'ai';
-import type { CoreMessage, LanguageModelV1 } from 'ai';
+import { streamText, stepCountIs } from 'ai';
+import type { ModelMessage, LanguageModel } from 'ai';
 import { getModel, getRestrictedFetch } from '../provider/registry.js';
 import { getBuiltinTools } from '../tools/registry.js';
 import { DEFAULT_SYSTEM_PROMPT, DEFAULT_MAX_STEPS } from './types.js';
 
 export interface RunAgentTurnOptions {
-  messages: CoreMessage[];
+  messages: ModelMessage[];
   systemPrompt?: string;
   maxSteps?: number;
-  model?: LanguageModelV1;
+  model?: LanguageModel;
   onChunk?: (chunk: string) => void;
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
   onToolResult?: (toolName: string, result: unknown) => void;
@@ -16,7 +16,7 @@ export interface RunAgentTurnOptions {
 
 export interface AgentTurnResult {
   text: string;
-  responseMessages: CoreMessage[];
+  responseMessages: ModelMessage[];
 }
 
 export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentTurnResult> {
@@ -33,15 +33,15 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     system: systemPrompt,
     messages,
     tools: getBuiltinTools(getRestrictedFetch()),
-    maxSteps,
+    stopWhen: stepCountIs(maxSteps),
   });
 
   let fullText = '';
   for await (const part of result.fullStream) {
     switch (part.type) {
       case 'text-delta':
-        fullText += part.textDelta;
-        onChunk?.(part.textDelta);
+        fullText += part.text;
+        onChunk?.(part.text);
         break;
       case 'tool-call': {
         const callPart = part as unknown as { toolName: string; input: Record<string, unknown> };
@@ -60,6 +60,6 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
 
   return {
     text: fullText,
-    responseMessages: response.messages as CoreMessage[],
+    responseMessages: response.messages as ModelMessage[],
   };
 }

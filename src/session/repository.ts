@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getDatabase } from './db.js';
 import type { Session } from './types.js';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
 interface SessionRow {
   id: string;
@@ -15,7 +15,7 @@ function rowToSession(row: SessionRow): Session {
   return {
     id: row.id,
     title: row.title,
-    messages: JSON.parse(row.messages) as CoreMessage[],
+    messages: JSON.parse(row.messages) as ModelMessage[],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -47,7 +47,7 @@ export class SessionRepository {
     return rows.map(rowToSession);
   }
 
-  updateMessages(id: string, messages: CoreMessage[]): void {
+  updateMessages(id: string, messages: ModelMessage[]): void {
     const db = getDatabase();
     db.prepare(
       "UPDATE sessions SET messages = ?, updated_at = datetime('now') WHERE id = ?"

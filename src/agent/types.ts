@@ -1,4 +1,4 @@
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
 export interface AgentOptions {
   systemPrompt: string;
@@ -6,7 +6,7 @@ export interface AgentOptions {
 }
 
 export interface AgentState {
-  messages: CoreMessage[];
+  messages: ModelMessage[];
   sessionId: string;
 }
 

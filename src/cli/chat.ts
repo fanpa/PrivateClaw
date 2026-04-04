@@ -1,5 +1,5 @@
 import * as readline from 'node:readline';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import { runAgentTurn } from '../agent/loop.js';
 import { SessionRepository } from '../session/repository.js';
 import { getProviderName } from '../provider/registry.js';
@@ -25,7 +25,7 @@ export async function startChat(
     session = repo.create('New Chat');
   }
 
-  const messages: CoreMessage[] = [...session.messages];
+  const messages: ModelMessage[] = [...session.messages];
 
   renderWelcome();
   renderSessionInfo(session.id, getProviderName());

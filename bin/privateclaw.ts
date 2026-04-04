@@ -1,4 +1,4 @@
-#!/usr/bin/env node --import tsx
+#!/usr/bin/env node
 import { createApp } from '../src/cli/app.js';
 
 const app = createApp();

@@ -1,10 +1,10 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import type { LanguageModelV1 } from 'ai';
+import type { LanguageModel } from 'ai';
 import type { ProviderConfig } from '../config/schema.js';
 
 export interface ProviderResult {
-  model: LanguageModelV1;
+  model: LanguageModel;
   provider: string;
 }
 
