@@ -9,6 +9,8 @@ import {
   renderError,
   renderWelcome,
   renderSessionInfo,
+  renderToolCall,
+  renderToolResult,
 } from './renderer.js';
 
 export async function startChat(
@@ -50,6 +52,8 @@ export async function startChat(
         const result = await runAgentTurn({
           messages,
           onChunk: renderChunk,
+          onToolCall: (name, args) => renderToolCall(name, args),
+          onToolResult: (name, result) => renderToolResult(name, result),
         });
 
         renderNewLine();

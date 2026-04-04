@@ -16,8 +16,12 @@ export function renderError(message: string): void {
   console.error(chalk.red(`[error] ${message}`));
 }
 
-export function renderToolCall(toolName: string, args: Record<string, unknown>): void {
-  console.log(chalk.yellow(`\n[tool] ${toolName}`), chalk.dim(JSON.stringify(args)));
+export function renderToolCall(toolName: string, args: unknown): void {
+  console.log(chalk.yellow(`\n[tool:call] ${toolName}`), chalk.dim(JSON.stringify(args)));
+}
+
+export function renderToolResult(toolName: string, result: unknown): void {
+  console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(JSON.stringify(result)));
 }
 
 export function renderWelcome(): void {

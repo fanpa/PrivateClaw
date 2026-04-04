@@ -7,9 +7,9 @@ vi.mock('ai', async () => {
   return {
     ...actual,
     streamText: vi.fn().mockReturnValue({
-      textStream: (async function* () {
-        yield 'Hello, ';
-        yield 'world!';
+      fullStream: (async function* () {
+        yield { type: 'text-delta', textDelta: 'Hello, ' };
+        yield { type: 'text-delta', textDelta: 'world!' };
       })(),
       text: Promise.resolve('Hello, world!'),
       response: Promise.resolve({

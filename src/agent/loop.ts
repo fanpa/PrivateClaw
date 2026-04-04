@@ -10,6 +10,8 @@ export interface RunAgentTurnOptions {
   maxSteps?: number;
   model?: LanguageModelV1;
   onChunk?: (chunk: string) => void;
+  onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
+  onToolResult?: (toolName: string, result: unknown) => void;
 }
 
 export interface AgentTurnResult {
@@ -35,9 +37,23 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   });
 
   let fullText = '';
-  for await (const chunk of result.textStream) {
-    fullText += chunk;
-    onChunk?.(chunk);
+  for await (const part of result.fullStream) {
+    switch (part.type) {
+      case 'text-delta':
+        fullText += part.textDelta;
+        onChunk?.(part.textDelta);
+        break;
+      case 'tool-call': {
+        const callPart = part as unknown as { toolName: string; input: Record<string, unknown> };
+        options.onToolCall?.(callPart.toolName, callPart.input);
+        break;
+      }
+      case 'tool-result': {
+        const resultPart = part as unknown as { toolName: string; output: unknown };
+        options.onToolResult?.(resultPart.toolName, resultPart.output);
+        break;
+      }
+    }
   }
 
   const response = await result.response;
