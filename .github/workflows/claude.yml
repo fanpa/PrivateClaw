@@ -16,8 +16,11 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      actions: read
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
