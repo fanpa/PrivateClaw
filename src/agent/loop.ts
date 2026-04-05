@@ -10,6 +10,7 @@ export interface RunAgentTurnOptions {
   systemPrompt?: string;
   maxSteps?: number;
   model?: LanguageModel;
+  defaultHeaders?: Record<string, Record<string, string>>;
   onChunk?: (chunk: string) => void;
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
   onToolResult?: (toolName: string, result: unknown) => void;
@@ -35,7 +36,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     model: model ?? getModel(),
     system: systemPrompt,
     messages,
-    tools: getBuiltinTools(getRestrictedFetch()),
+    tools: getBuiltinTools({ fetchFn: getRestrictedFetch(), defaultHeaders: options.defaultHeaders }),
     stopWhen: stepCountIs(maxSteps),
   });
 

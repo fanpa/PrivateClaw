@@ -9,6 +9,7 @@ const ProviderSchema = z.object({
 
 const SecuritySchema = z.object({
   allowedDomains: z.array(z.string()).default([]),
+  defaultHeaders: z.record(z.record(z.string())).default({}),
 });
 
 const SessionSchema = z.object({

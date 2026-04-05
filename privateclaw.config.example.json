@@ -6,7 +6,12 @@
     "model": "gpt-4o"
   },
   "security": {
-    "allowedDomains": ["localhost", "internal.corp.com"]
+    "allowedDomains": ["localhost", "internal.corp.com"],
+    "defaultHeaders": {
+      "internal.corp.com": {
+        "Authorization": "Bearer your-api-token"
+      }
+    }
   },
   "session": {
     "dbPath": "./privateclaw-sessions.db"

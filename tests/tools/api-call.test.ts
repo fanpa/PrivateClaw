@@ -111,6 +111,64 @@ describe('createApiCallTool', () => {
     expect(result.error).toContain('Domain not allowed: blocked.com');
   });
 
+  it('applies defaultHeaders for matching domain', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers(),
+      text: async () => 'ok',
+    });
+
+    const defaultHeaders = {
+      'api.example.com': { 'Authorization': 'Bearer default-token' },
+    };
+    const apiCall = createApiCallTool(mockFetch as unknown as typeof fetch, defaultHeaders);
+    await apiCall.execute({ url: 'https://api.example.com/data', method: 'GET' });
+
+    expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/data', expect.objectContaining({
+      headers: { 'Authorization': 'Bearer default-token' },
+    }));
+  });
+
+  it('LLM headers override defaultHeaders', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers(),
+      text: async () => 'ok',
+    });
+
+    const defaultHeaders = {
+      'api.example.com': { 'Authorization': 'Bearer default-token', 'X-Custom': 'keep-me' },
+    };
+    const apiCall = createApiCallTool(mockFetch as unknown as typeof fetch, defaultHeaders);
+    await apiCall.execute({
+      url: 'https://api.example.com/data',
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer override-token' },
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/data', expect.objectContaining({
+      headers: { 'Authorization': 'Bearer override-token', 'X-Custom': 'keep-me' },
+    }));
+  });
+
+  it('does not apply defaultHeaders for non-matching domain', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers(),
+      text: async () => 'ok',
+    });
+
+    const defaultHeaders = {
+      'api.example.com': { 'Authorization': 'Bearer token' },
+    };
+    const apiCall = createApiCallTool(mockFetch as unknown as typeof fetch, defaultHeaders);
+    await apiCall.execute({ url: 'https://other.com/data', method: 'GET' });
+
+    expect(mockFetch).toHaveBeenCalledWith('https://other.com/data', expect.objectContaining({
+      headers: undefined,
+    }));
+  });
+
   it('returns error on fetch failure', async () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'));
 

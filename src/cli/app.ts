@@ -26,7 +26,7 @@ export function createApp(): Command {
         const restrictedFetch = createRestrictedFetch(config.security.allowedDomains);
         initProvider(config.provider, restrictedFetch);
         createDatabase(config.session.dbPath);
-        await startChat(opts.session);
+        await startChat(opts.session, config.security.defaultHeaders);
       } catch (err) {
         renderError(err instanceof Error ? err.message : String(err));
         process.exit(1);

@@ -51,6 +51,7 @@ function createApprovalHandler(
 
 export async function startChat(
   sessionId?: string,
+  defaultHeaders?: Record<string, Record<string, string>>,
 ): Promise<void> {
   const repo = new SessionRepository();
   const approvalManager = new ToolApprovalManager();
@@ -88,6 +89,7 @@ export async function startChat(
       try {
         const result = await runAgentTurn({
           messages,
+          defaultHeaders,
           onChunk: renderChunk,
           onToolCall: (name, args) => renderToolCall(name, args),
           onToolResult: (name, result) => {

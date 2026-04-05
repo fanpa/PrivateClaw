@@ -14,14 +14,32 @@ const parameters = z.object({
   body: z.string().optional().describe('Request body (for POST, PATCH, PUT)'),
 });
 
+function resolveHeaders(
+  url: string,
+  defaultHeaders: Record<string, Record<string, string>>,
+  requestHeaders?: Record<string, string>,
+): Record<string, string> {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    return requestHeaders ?? {};
+  }
+
+  const defaults = defaultHeaders[hostname] ?? {};
+  return { ...defaults, ...requestHeaders };
+}
+
 async function doApiCall(
   fetchFn: typeof globalThis.fetch,
+  defaultHeaders: Record<string, Record<string, string>>,
   params: z.infer<typeof parameters>,
 ): Promise<ApiCallResult> {
   try {
+    const mergedHeaders = resolveHeaders(params.url, defaultHeaders, params.headers);
     const response = await fetchFn(params.url, {
       method: params.method,
-      headers: params.headers,
+      headers: Object.keys(mergedHeaders).length > 0 ? mergedHeaders : undefined,
       body: params.body,
     });
 
@@ -40,7 +58,10 @@ async function doApiCall(
   }
 }
 
-export function createApiCallTool(fetchFn: typeof globalThis.fetch) {
+export function createApiCallTool(
+  fetchFn: typeof globalThis.fetch,
+  defaultHeaders: Record<string, Record<string, string>> = {},
+) {
   return {
     name: 'api_call' as const,
     description: 'Make an HTTP API call with specified method, headers, and body. Supports GET, POST, PATCH, PUT, DELETE. Respects domain whitelist.',
@@ -48,11 +69,11 @@ export function createApiCallTool(fetchFn: typeof globalThis.fetch) {
       description: 'Make an HTTP API call with specified method, headers, and body. Supports GET, POST, PATCH, PUT, DELETE. Respects domain whitelist.',
       parameters,
       execute: async (input: z.infer<typeof parameters>): Promise<ApiCallResult> => {
-        return doApiCall(fetchFn, input);
+        return doApiCall(fetchFn, defaultHeaders, input);
       },
     },
     execute: async (params: z.infer<typeof parameters>): Promise<ApiCallResult> => {
-      return doApiCall(fetchFn, params);
+      return doApiCall(fetchFn, defaultHeaders, params);
     },
   };
 }
