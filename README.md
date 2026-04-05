@@ -91,6 +91,19 @@ Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더
 }
 ```
 
+### Tool 결과 요약 표시
+
+`web_fetch`, `api_call` 등 대량의 데이터를 반환하는 도구의 결과는 CLI에서 자동으로 요약됩니다. 전체 내용은 LLM에 그대로 전달되므로 분석에는 영향이 없습니다.
+
+```
+[tool:result] web_fetch status=200, body=78.5 KB
+<!doctype html><html itemscope="" itemtype="http://schema.org/We... [1523 lines, 78.5 KB total]
+```
+
+- HTTP 결과: `status`, `body 크기`, 본문 미리보기 (콘솔 2줄 분량)
+- 기타 도구: JSON 결과를 콘솔 2줄로 truncation
+- 에러: 전체 메시지 표시
+
 ### 대화 기록 관리
 
 SQLite 기반 세션 저장 및 복원 기능을 제공합니다. 이전 대화를 이어서 진행할 수 있습니다.
