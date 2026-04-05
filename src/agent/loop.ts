@@ -2,8 +2,9 @@ import { streamText, stepCountIs } from 'ai';
 import type { ModelMessage, LanguageModel } from 'ai';
 import { getModel, getRestrictedFetch } from '../provider/registry.js';
 import { getBuiltinTools } from '../tools/registry.js';
-import { DEFAULT_SYSTEM_PROMPT, DEFAULT_MAX_STEPS } from './types.js';
+import { buildSystemPrompt, DEFAULT_MAX_STEPS } from './types.js';
 import type { ApprovalDecision } from '../approval/types.js';
+import type { SkillConfig } from '../skills/types.js';
 
 export interface RunAgentTurnOptions {
   messages: ModelMessage[];
@@ -11,6 +12,8 @@ export interface RunAgentTurnOptions {
   maxSteps?: number;
   model?: LanguageModel;
   defaultHeaders?: Record<string, Record<string, string>>;
+  skills?: SkillConfig[];
+  skillsDir?: string;
   onChunk?: (chunk: string) => void;
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
   onToolResult?: (toolName: string, result: unknown) => void;
@@ -26,17 +29,24 @@ export interface AgentTurnResult {
 export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentTurnResult> {
   const {
     messages,
-    systemPrompt = DEFAULT_SYSTEM_PROMPT,
+    systemPrompt,
     maxSteps = DEFAULT_MAX_STEPS,
     model,
     onChunk,
   } = options;
 
+  const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills);
+
   const result = streamText({
     model: model ?? getModel(),
-    system: systemPrompt,
+    system: effectivePrompt,
     messages,
-    tools: getBuiltinTools({ fetchFn: getRestrictedFetch(), defaultHeaders: options.defaultHeaders }),
+    tools: getBuiltinTools({
+      fetchFn: getRestrictedFetch(),
+      defaultHeaders: options.defaultHeaders,
+      skills: options.skills,
+      skillsDir: options.skillsDir,
+    }),
     stopWhen: stepCountIs(maxSteps),
   });
 

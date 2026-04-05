@@ -49,9 +49,17 @@ function createApprovalHandler(
   };
 }
 
+import type { SkillConfig } from '../skills/types.js';
+
+export interface ChatOptions {
+  defaultHeaders?: Record<string, Record<string, string>>;
+  skills?: SkillConfig[];
+  skillsDir?: string;
+}
+
 export async function startChat(
   sessionId?: string,
-  defaultHeaders?: Record<string, Record<string, string>>,
+  options: ChatOptions = {},
 ): Promise<void> {
   const repo = new SessionRepository();
   const approvalManager = new ToolApprovalManager();
@@ -89,7 +97,9 @@ export async function startChat(
       try {
         const result = await runAgentTurn({
           messages,
-          defaultHeaders,
+          defaultHeaders: options.defaultHeaders,
+          skills: options.skills,
+          skillsDir: options.skillsDir,
           onChunk: renderChunk,
           onToolCall: (name, args) => renderToolCall(name, args),
           onToolResult: (name, result) => {
