@@ -15,5 +15,12 @@
   },
   "session": {
     "dbPath": "./privateclaw-sessions.db"
-  }
+  },
+  "skills": [
+    {
+      "name": "failure-analysis",
+      "description": "서비스 장애나 에러 로그를 분석하여 근본 원인과 해결 방안을 제시합니다."
+    }
+  ],
+  "skillsDir": "./skills"
 }

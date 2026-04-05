@@ -4,6 +4,35 @@
 
 ## 주요 기능
 
+### Skills (MD 기반 워크플로우)
+
+마크다운 기반 스킬 시스템을 통해 LLM의 동작을 커스터마이즈할 수 있습니다. `skills/<name>/skill.md` 파일에 워크플로우를 작성하고, config에 등록하면 LLM이 `use_skill` 도구로 스킬을 로드하여 지시에 따라 동작합니다.
+
+```json
+{
+  "skills": [
+    {
+      "name": "failure-analysis",
+      "description": "서비스 장애나 에러 로그를 분석하여 근본 원인과 해결 방안을 제시합니다."
+    }
+  ],
+  "skillsDir": "./skills"
+}
+```
+
+스킬 문서 예시 (`skills/failure-analysis/skill.md`):
+
+```markdown
+# Failure Analysis
+
+## Workflow
+
+1. 로그 파일이 제공된 경우, file_read로 로그를 읽습니다.
+2. Connection 관련 에러인 경우: 네트워크 문제로 판단합니다.
+3. Timeout 에러인 경우: 서버 응답 지연으로 판단합니다.
+4. 분석 결과를 에러 유형, 근본 원인, 권장 조치 형식으로 요약합니다.
+```
+
 ### 도메인 화이트리스트 보안
 
 Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더라도 연결을 차단합니다. 서브도메인 자동 매칭과 와일드카드(`*.example.com`)를 지원합니다.
@@ -21,7 +50,7 @@ Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더
 
 ### Tool 시스템
 
-5개의 빌트인 도구를 제공합니다:
+6개의 빌트인 도구를 제공합니다:
 
 | 도구 | 설명 |
 |------|------|
@@ -30,6 +59,7 @@ Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더
 | `bash_exec` | Bash 명령어 실행 |
 | `web_fetch` | URL의 내용을 가져오기 (도메인 화이트리스트 적용) |
 | `api_call` | HTTP API 호출 — GET, POST, PATCH, PUT, DELETE 지원 (도메인 화이트리스트 적용) |
+| `use_skill` | 등록된 스킬 문서를 로드하여 워크플로우 지시를 따름 |
 
 ### Tool 실행 승인 시스템
 
@@ -76,10 +106,6 @@ OpenAI, Anthropic, Ollama를 지원합니다. OpenAI/Anthropic compatible API를
 ## 구현 예정 기능
 
 아래 기능은 아직 구현되지 않았으며, 향후 추가될 예정입니다.
-
-### Skills (예정)
-
-MD 형식으로 정의된 skill을 자유롭게 추가할 수 있는 시스템.
 
 ### MCP 연동 (예정)
 
@@ -166,5 +192,5 @@ pnpm dev -- chat
 | CLI | Commander.js | CLI 인터페이스 |
 | 세션 저장 | SQLite (`better-sqlite3`) | 로컬 저장소 |
 | 스키마 | Zod | 타입 안전한 설정/도구 정의 |
-| 테스트 | Vitest | 72개 단위 테스트 |
+| 테스트 | Vitest | 81개 단위 테스트 |
 | 패키지 관리 | pnpm | |
