@@ -2,37 +2,51 @@ import { streamText, stepCountIs } from 'ai';
 import type { ModelMessage, LanguageModel } from 'ai';
 import { getModel, getRestrictedFetch } from '../provider/registry.js';
 import { getBuiltinTools } from '../tools/registry.js';
-import { DEFAULT_SYSTEM_PROMPT, DEFAULT_MAX_STEPS } from './types.js';
+import { buildSystemPrompt, DEFAULT_MAX_STEPS } from './types.js';
+import type { ApprovalDecision } from '../approval/types.js';
+import type { SkillConfig } from '../skills/types.js';
 
 export interface RunAgentTurnOptions {
   messages: ModelMessage[];
   systemPrompt?: string;
   maxSteps?: number;
   model?: LanguageModel;
+  defaultHeaders?: Record<string, Record<string, string>>;
+  skills?: SkillConfig[];
+  skillsDir?: string;
   onChunk?: (chunk: string) => void;
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
   onToolResult?: (toolName: string, result: unknown) => void;
+  onToolApproval?: (toolName: string, args: Record<string, unknown>) => Promise<ApprovalDecision>;
 }
 
 export interface AgentTurnResult {
   text: string;
   responseMessages: ModelMessage[];
+  aborted?: boolean;
 }
 
 export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentTurnResult> {
   const {
     messages,
-    systemPrompt = DEFAULT_SYSTEM_PROMPT,
+    systemPrompt,
     maxSteps = DEFAULT_MAX_STEPS,
     model,
     onChunk,
   } = options;
 
+  const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills);
+
   const result = streamText({
     model: model ?? getModel(),
-    system: systemPrompt,
+    system: effectivePrompt,
     messages,
-    tools: getBuiltinTools(getRestrictedFetch()),
+    tools: getBuiltinTools({
+      fetchFn: getRestrictedFetch(),
+      defaultHeaders: options.defaultHeaders,
+      skills: options.skills,
+      skillsDir: options.skillsDir,
+    }),
     stopWhen: stepCountIs(maxSteps),
   });
 
@@ -45,6 +59,16 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
         break;
       case 'tool-call': {
         const callPart = part as unknown as { toolName: string; input: Record<string, unknown> };
+        if (options.onToolApproval) {
+          const decision = await options.onToolApproval(callPart.toolName, callPart.input);
+          if (decision === 'deny') {
+            return {
+              text: fullText,
+              responseMessages: [],
+              aborted: true,
+            };
+          }
+        }
         options.onToolCall?.(callPart.toolName, callPart.input);
         break;
       }
