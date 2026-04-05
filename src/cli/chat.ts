@@ -3,6 +3,8 @@ import type { ModelMessage } from 'ai';
 import { runAgentTurn } from '../agent/loop.js';
 import { SessionRepository } from '../session/repository.js';
 import { getProviderName } from '../provider/registry.js';
+import { ToolApprovalManager } from '../approval/manager.js';
+import type { ApprovalDecision } from '../approval/types.js';
 import {
   renderChunk,
   renderNewLine,
@@ -11,12 +13,47 @@ import {
   renderSessionInfo,
   renderToolCall,
   renderToolResult,
+  renderApprovalPrompt,
+  renderApprovalResult,
 } from './renderer.js';
+
+function createApprovalHandler(
+  rl: readline.Interface,
+  approvalManager: ToolApprovalManager,
+) {
+  return (toolName: string, args: Record<string, unknown>): Promise<ApprovalDecision> => {
+    if (!approvalManager.needsApproval(toolName)) {
+      approvalManager.consume(toolName);
+      return Promise.resolve('allow_once');
+    }
+
+    renderApprovalPrompt(toolName, args);
+    return new Promise((resolve) => {
+      rl.question('', (answer) => {
+        const choice = answer.trim().toLowerCase();
+        let decision: ApprovalDecision;
+        if (choice === 'a') {
+          decision = 'allow_always';
+          approvalManager.allowAlways(toolName);
+        } else if (choice === 'y') {
+          decision = 'allow_once';
+          approvalManager.allowOnce(toolName);
+          approvalManager.consume(toolName);
+        } else {
+          decision = 'deny';
+        }
+        renderApprovalResult(toolName, decision);
+        resolve(decision);
+      });
+    });
+  };
+}
 
 export async function startChat(
   sessionId?: string,
 ): Promise<void> {
   const repo = new SessionRepository();
+  const approvalManager = new ToolApprovalManager();
   let session = sessionId
     ? repo.getById(sessionId)
     : null;
@@ -60,9 +97,16 @@ export async function startChat(
               renderError(`Tool "${name}" failed: ${res.error}`);
             }
           },
+          onToolApproval: createApprovalHandler(rl, approvalManager),
         });
 
         renderNewLine();
+
+        if (result.aborted) {
+          renderError('Agent stopped by user.');
+          continue;
+        }
+
         messages.push(...result.responseMessages);
         repo.updateMessages(session!.id, messages);
       } catch (err) {

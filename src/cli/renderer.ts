@@ -32,3 +32,19 @@ export function renderWelcome(): void {
 export function renderSessionInfo(sessionId: string, providerName: string): void {
   console.log(chalk.dim(`Session: ${sessionId} | Provider: ${providerName}\n`));
 }
+
+export function renderApprovalPrompt(toolName: string, args: unknown): void {
+  console.log(chalk.bold.yellow(`\n⚠ Tool "${toolName}" wants to execute:`));
+  console.log(chalk.dim(JSON.stringify(args, null, 2)));
+  console.log(chalk.yellow('  [y] Allow once  [a] Allow always  [n] Deny'));
+}
+
+export function renderApprovalResult(toolName: string, decision: string): void {
+  if (decision === 'deny') {
+    console.log(chalk.red(`✗ "${toolName}" denied. Stopping agent.`));
+  } else if (decision === 'allow_always') {
+    console.log(chalk.green(`✓ "${toolName}" allowed permanently.`));
+  } else {
+    console.log(chalk.green(`✓ "${toolName}" allowed once.`));
+  }
+}
