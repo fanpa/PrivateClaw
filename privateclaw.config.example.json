@@ -1,0 +1,14 @@
+{
+  "provider": {
+    "type": "openai",
+    "baseURL": "http://localhost:8080/v1",
+    "apiKey": "your-api-key",
+    "model": "gpt-4o"
+  },
+  "security": {
+    "allowedDomains": ["localhost", "internal.corp.com"]
+  },
+  "session": {
+    "dbPath": "./privateclaw-sessions.db"
+  }
+}
