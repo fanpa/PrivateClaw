@@ -5,6 +5,8 @@ const ProviderSchema = z.object({
   baseURL: z.string().url(),
   apiKey: z.string().optional(),
   model: z.string(),
+  temperature: z.number().min(0).max(2).default(0.7),
+  reflectionLoops: z.number().int().min(0).max(5).default(2),
 });
 
 const SecuritySchema = z.object({

@@ -3,7 +3,9 @@
     "type": "openai",
     "baseURL": "http://localhost:8080/v1",
     "apiKey": "your-api-key",
-    "model": "gpt-4o"
+    "model": "gpt-4o",
+    "temperature": 0.3,
+    "reflectionLoops": 2
   },
   "security": {
     "allowedDomains": ["localhost", "internal.corp.com"],
