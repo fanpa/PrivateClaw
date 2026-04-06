@@ -3,14 +3,18 @@ import type { ModelMessage } from 'ai';
 import { runAgentTurn } from '../agent/loop.js';
 import { SessionRepository } from '../session/repository.js';
 import { getProviderName } from '../provider/registry.js';
+import { loadConfig } from '../config/loader.js';
+import { initFromConfig } from './app.js';
 import { ToolApprovalManager } from '../approval/manager.js';
 import type { ApprovalDecision } from '../approval/types.js';
+import type { SkillConfig } from '../skills/types.js';
 import {
   renderChunk,
   renderNewLine,
   renderError,
   renderWelcome,
   renderSessionInfo,
+  renderSystemMessage,
   renderToolCall,
   renderToolResult,
   renderApprovalPrompt,
@@ -49,10 +53,10 @@ function createApprovalHandler(
   };
 }
 
-import type { SkillConfig } from '../skills/types.js';
-
 export interface ChatOptions {
+  configPath?: string;
   defaultHeaders?: Record<string, Record<string, string>>;
+  allowedDomains?: string[];
   skills?: SkillConfig[];
   skillsDir?: string;
 }
@@ -63,6 +67,10 @@ export async function startChat(
 ): Promise<void> {
   const repo = new SessionRepository();
   const approvalManager = new ToolApprovalManager();
+
+  // Mutable options that can be reloaded
+  let currentOptions = { ...options };
+
   let session = sessionId
     ? repo.getById(sessionId)
     : null;
@@ -92,14 +100,61 @@ export async function startChat(
       if (trimmed === '/quit' || trimmed === '/exit') break;
       if (trimmed === '') continue;
 
+      // Chat commands
+      if (trimmed === '/domains') {
+        const domains = currentOptions.allowedDomains ?? [];
+        if (domains.length === 0) {
+          renderSystemMessage('No domain restrictions (all domains allowed).');
+        } else {
+          renderSystemMessage(`Allowed domains (${domains.length}):`);
+          for (const d of domains) {
+            renderSystemMessage(`  ${d}`);
+          }
+        }
+        continue;
+      }
+
+      if (trimmed === '/reload') {
+        if (!currentOptions.configPath) {
+          renderError('Config path not available. Restart with -c option.');
+          continue;
+        }
+        try {
+          const config = loadConfig(currentOptions.configPath);
+          initFromConfig(config);
+          currentOptions = {
+            ...currentOptions,
+            defaultHeaders: config.security.defaultHeaders,
+            allowedDomains: config.security.allowedDomains,
+            skills: config.skills,
+            skillsDir: config.skillsDir,
+          };
+          renderSystemMessage('Config reloaded successfully.');
+          renderSystemMessage(`Provider: ${config.provider.type} (${config.provider.model})`);
+          renderSystemMessage(`Allowed domains: ${config.security.allowedDomains.join(', ') || '(none — all allowed)'}`);
+        } catch (err) {
+          renderError(`Failed to reload config: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        continue;
+      }
+
+      if (trimmed === '/help') {
+        renderSystemMessage('Available commands:');
+        renderSystemMessage('  /domains  — Show allowed domains');
+        renderSystemMessage('  /reload   — Reload config file');
+        renderSystemMessage('  /help     — Show this help');
+        renderSystemMessage('  /quit     — Exit');
+        continue;
+      }
+
       messages.push({ role: 'user', content: trimmed });
 
       try {
         const result = await runAgentTurn({
           messages,
-          defaultHeaders: options.defaultHeaders,
-          skills: options.skills,
-          skillsDir: options.skillsDir,
+          defaultHeaders: currentOptions.defaultHeaders,
+          skills: currentOptions.skills,
+          skillsDir: currentOptions.skillsDir,
           onChunk: renderChunk,
           onToolCall: (name, args) => renderToolCall(name, args),
           onToolResult: (name, result) => {
