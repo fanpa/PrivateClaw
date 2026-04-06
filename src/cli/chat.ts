@@ -12,6 +12,7 @@ import {
   renderChunk,
   renderNewLine,
   renderError,
+  renderErrorWithStack,
   renderWelcome,
   renderSessionInfo,
   renderSystemMessage,
@@ -177,7 +178,7 @@ export async function startChat(
         messages.push(...result.responseMessages);
         repo.updateMessages(session!.id, messages);
       } catch (err) {
-        renderError(err instanceof Error ? err.message : String(err));
+        renderErrorWithStack(err);
       }
     }
   } finally {

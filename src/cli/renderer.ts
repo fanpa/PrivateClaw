@@ -1,5 +1,15 @@
 import chalk from 'chalk';
 
+let verbose = false;
+
+export function setVerbose(v: boolean): void {
+  verbose = v;
+}
+
+export function isVerbose(): boolean {
+  return verbose;
+}
+
 export function renderChunk(chunk: string): void {
   process.stdout.write(chunk);
 }
@@ -14,6 +24,23 @@ export function renderSystemMessage(message: string): void {
 
 export function renderError(message: string): void {
   console.error(chalk.red(`[error] ${message}`));
+}
+
+export function renderDebug(message: string): void {
+  if (verbose) {
+    console.log(chalk.gray(`[debug] ${message}`));
+  }
+}
+
+export function renderErrorWithStack(err: unknown): void {
+  if (err instanceof Error) {
+    renderError(err.message);
+    if (verbose && err.stack) {
+      console.error(chalk.gray(err.stack));
+    }
+  } else {
+    renderError(String(err));
+  }
 }
 
 export function renderToolCall(toolName: string, args: unknown): void {
@@ -49,6 +76,14 @@ function renderHttpResult(toolName: string, result: Record<string, unknown>): vo
   }
 
   const bodySize = body ? formatBytes(Buffer.byteLength(body, 'utf-8')) : '0 B';
+
+  if (verbose) {
+    // Verbose: show full response
+    console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(`status=${status ?? '?'}, body=${bodySize}`));
+    if (body) console.log(chalk.dim(body));
+    return;
+  }
+
   const width = getConsoleWidth();
   const maxChars = width * 2;
 
@@ -75,8 +110,15 @@ export function renderToolResult(toolName: string, result: unknown): void {
     return;
   }
 
-  // Other tools: truncate if too long
   const json = JSON.stringify(result);
+
+  if (verbose) {
+    // Verbose: show full JSON
+    console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(json));
+    return;
+  }
+
+  // Normal: truncate if too long
   const width = getConsoleWidth();
   const maxChars = width * 2;
 
@@ -90,11 +132,11 @@ export function renderToolResult(toolName: string, result: unknown): void {
 
 export function renderWelcome(): void {
   console.log(chalk.bold('\nPrivateClaw'));
-  console.log(chalk.dim('Type your message and press Enter. Type /quit to exit.\n'));
+  console.log(chalk.dim('Type your message and press Enter. Type /help for commands.\n'));
 }
 
 export function renderSessionInfo(sessionId: string, providerName: string): void {
-  console.log(chalk.dim(`Session: ${sessionId} | Provider: ${providerName}\n`));
+  console.log(chalk.dim(`Session: ${sessionId} | Provider: ${providerName}${verbose ? ' | Verbose: ON' : ''}\n`));
 }
 
 export function renderApprovalPrompt(toolName: string, args: unknown): void {

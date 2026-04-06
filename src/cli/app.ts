@@ -7,7 +7,7 @@ import { createRestrictedFetch } from '../security/restricted-fetch.js';
 import { isDomainAllowed } from '../security/domain-guard.js';
 import { SessionRepository } from '../session/repository.js';
 import { startChat } from './chat.js';
-import { renderError, renderSystemMessage } from './renderer.js';
+import { renderError, renderSystemMessage, setVerbose } from './renderer.js';
 
 export function initFromConfig(config: Config): void {
   if (config.security.allowedDomains.length > 0) {
@@ -37,8 +37,10 @@ export function createApp(): Command {
     .description('Start an interactive chat session')
     .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
     .option('-s, --session <id>', 'Resume a previous session by ID')
-    .action(async (opts: { config: string; session?: string }) => {
+    .option('-v, --verbose', 'Enable verbose output (show full tool results and stack traces)')
+    .action(async (opts: { config: string; session?: string; verbose?: boolean }) => {
       try {
+        if (opts.verbose) setVerbose(true);
         const config = loadConfig(opts.config);
         initFromConfig(config);
         createDatabase(config.session.dbPath);
