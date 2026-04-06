@@ -3,6 +3,7 @@ import { loadConfig } from '../config/loader.js';
 import { initProvider } from '../provider/registry.js';
 import { createDatabase, closeDatabase } from '../session/db.js';
 import { createRestrictedFetch } from '../security/restricted-fetch.js';
+import { isDomainAllowed } from '../security/domain-guard.js';
 import { SessionRepository } from '../session/repository.js';
 import { startChat } from './chat.js';
 import { renderError, renderSystemMessage } from './renderer.js';
@@ -23,6 +24,19 @@ export function createApp(): Command {
     .action(async (opts: { config: string; session?: string }) => {
       try {
         const config = loadConfig(opts.config);
+
+        // Pre-check: provider domain must be in allowedDomains
+        if (config.security.allowedDomains.length > 0) {
+          const providerHostname = new URL(config.provider.baseURL).hostname;
+          if (!isDomainAllowed(providerHostname, config.security.allowedDomains)) {
+            renderError(
+              `LLM provider domain "${providerHostname}" is not in allowedDomains.\n` +
+              `  Add "${providerHostname}" to security.allowedDomains in your config file.`
+            );
+            process.exit(1);
+          }
+        }
+
         const restrictedFetch = createRestrictedFetch(config.security.allowedDomains);
         initProvider(config.provider, restrictedFetch);
         createDatabase(config.session.dbPath);
