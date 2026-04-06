@@ -56,6 +56,8 @@ function createApprovalHandler(
 
 export interface ChatOptions {
   configPath?: string;
+  temperature?: number;
+  reflectionLoops?: number;
   defaultHeaders?: Record<string, Record<string, string>>;
   allowedDomains?: string[];
   skills?: SkillConfig[];
@@ -125,6 +127,8 @@ export async function startChat(
           initFromConfig(config);
           currentOptions = {
             ...currentOptions,
+            temperature: config.provider.temperature,
+            reflectionLoops: config.provider.reflectionLoops,
             defaultHeaders: config.security.defaultHeaders,
             allowedDomains: config.security.allowedDomains,
             skills: config.skills,
@@ -153,6 +157,7 @@ export async function startChat(
       try {
         const result = await runAgentTurn({
           messages,
+          temperature: currentOptions.temperature,
           defaultHeaders: currentOptions.defaultHeaders,
           skills: currentOptions.skills,
           skillsDir: currentOptions.skillsDir,

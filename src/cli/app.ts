@@ -46,6 +46,8 @@ export function createApp(): Command {
         createDatabase(config.session.dbPath);
         await startChat(opts.session, {
           configPath: opts.config,
+          temperature: config.provider.temperature,
+          reflectionLoops: config.provider.reflectionLoops,
           defaultHeaders: config.security.defaultHeaders,
           allowedDomains: config.security.allowedDomains,
           skills: config.skills,

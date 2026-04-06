@@ -11,6 +11,7 @@ export interface RunAgentTurnOptions {
   systemPrompt?: string;
   maxSteps?: number;
   model?: LanguageModel;
+  temperature?: number;
   defaultHeaders?: Record<string, Record<string, string>>;
   skills?: SkillConfig[];
   skillsDir?: string;
@@ -41,6 +42,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     model: model ?? getModel(),
     system: effectivePrompt,
     messages,
+    temperature: options.temperature,
     tools: getBuiltinTools({
       fetchFn: getRestrictedFetch(),
       defaultHeaders: options.defaultHeaders,
