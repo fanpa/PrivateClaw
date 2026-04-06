@@ -45,3 +45,12 @@ Be concise and direct.`;
 export const DEFAULT_SYSTEM_PROMPT = buildSystemPrompt();
 
 export const DEFAULT_MAX_STEPS = 10;
+
+export const REFLECTION_PROMPT = `Review your previous response for accuracy and quality:
+- Is the information correct and based on actual tool results?
+- Did you fabricate any information not returned by tools?
+- Is the response clear and well-structured?
+- Did you miss anything the user asked for?
+
+If your response was accurate and complete, reply with exactly: [LGTM]
+If corrections are needed, provide the corrected response.`;

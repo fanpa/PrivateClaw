@@ -20,6 +20,8 @@ import {
   renderToolResult,
   renderApprovalPrompt,
   renderApprovalResult,
+  renderReflecting,
+  renderReflectionDone,
 } from './renderer.js';
 
 function createApprovalHandler(
@@ -158,10 +160,13 @@ export async function startChat(
         const result = await runAgentTurn({
           messages,
           temperature: currentOptions.temperature,
+          reflectionLoops: currentOptions.reflectionLoops,
           defaultHeaders: currentOptions.defaultHeaders,
           skills: currentOptions.skills,
           skillsDir: currentOptions.skillsDir,
           onChunk: renderChunk,
+          onReflecting: renderReflecting,
+          onReflectionDone: renderReflectionDone,
           onToolCall: (name, args) => renderToolCall(name, args),
           onToolResult: (name, result) => {
             renderToolResult(name, result);

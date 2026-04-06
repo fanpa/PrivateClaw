@@ -130,6 +130,24 @@ export function renderToolResult(toolName: string, result: unknown): void {
   }
 }
 
+export function renderReflecting(loop: number): void {
+  if (verbose) {
+    console.log(chalk.magenta(`\n[reflecting] loop ${loop}...`));
+  } else {
+    process.stdout.write(chalk.magenta(`\n[reflecting...] `));
+  }
+}
+
+export function renderReflectionDone(changed: boolean): void {
+  if (verbose) {
+    console.log(chalk.magenta(`[reflection] ${changed ? 'response updated' : 'no changes needed'}`));
+  } else if (changed) {
+    console.log(chalk.magenta('[updated]'));
+  } else {
+    console.log(chalk.magenta('[ok]'));
+  }
+}
+
 export function renderWelcome(): void {
   console.log(chalk.bold('\nPrivateClaw'));
   console.log(chalk.dim('Type your message and press Enter. Type /help for commands.\n'));
