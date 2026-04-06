@@ -55,4 +55,17 @@ describe('createWebFetchTool', () => {
 
     expect(result.error).toContain('Domain not allowed: blocked.com');
   });
+
+  it('includes error cause in message', async () => {
+    const cause = new Error('getaddrinfo ENOTFOUND example.com');
+    const fetchError = new Error('fetch failed');
+    fetchError.cause = cause;
+    const mockFetch = vi.fn().mockRejectedValue(fetchError);
+
+    const webFetch = createWebFetchTool(mockFetch as unknown as typeof fetch);
+    const result = await webFetch.execute({ url: 'https://example.com' });
+
+    expect(result.error).toContain('fetch failed');
+    expect(result.error).toContain('getaddrinfo ENOTFOUND');
+  });
 });

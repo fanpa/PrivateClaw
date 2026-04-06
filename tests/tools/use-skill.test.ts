@@ -27,27 +27,27 @@ describe('createUseSkillTool', () => {
 
   it('loads a registered skill', async () => {
     const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
-    const result = await tool.execute({ skillName: 'my-skill' });
+    const result = await tool.execute({ name: 'my-skill' });
     expect(result.content).toContain('# My Skill');
     expect(result.content).toContain('Do something useful');
   });
 
   it('returns error for unregistered skill', async () => {
     const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
-    const result = await tool.execute({ skillName: 'unknown' });
+    const result = await tool.execute({ name: 'unknown' });
     expect(result.error).toContain('not registered');
   });
 
   it('returns error for missing skill file', async () => {
     const skillsWithMissing = [{ name: 'ghost', description: 'Does not exist on disk' }];
     const tool = createUseSkillTool(skillsWithMissing, TEST_SKILLS_DIR);
-    const result = await tool.execute({ skillName: 'ghost' });
+    const result = await tool.execute({ name: 'ghost' });
     expect(result.error).toBeDefined();
   });
 
   it('includes available skills list in error for unregistered skill', async () => {
     const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
-    const result = await tool.execute({ skillName: 'wrong' });
+    const result = await tool.execute({ name: 'wrong' });
     expect(result.error).toContain('my-skill');
   });
 });

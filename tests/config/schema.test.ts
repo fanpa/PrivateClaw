@@ -74,4 +74,41 @@ describe('ConfigSchema', () => {
     const result = ConfigSchema.parse(config);
     expect(result.session.dbPath).toBe('./privateclaw-sessions.db');
   });
+
+  it('defaults temperature to 0.7', () => {
+    const config = {
+      provider: {
+        type: 'ollama',
+        baseURL: 'http://localhost:11434/api',
+        model: 'llama3.2',
+      },
+    };
+    const result = ConfigSchema.parse(config);
+    expect(result.provider.temperature).toBe(0.7);
+  });
+
+  it('defaults reflectionLoops to 2', () => {
+    const config = {
+      provider: {
+        type: 'ollama',
+        baseURL: 'http://localhost:11434/api',
+        model: 'llama3.2',
+      },
+    };
+    const result = ConfigSchema.parse(config);
+    expect(result.provider.reflectionLoops).toBe(2);
+  });
+
+  it('allows reflectionLoops to be 0 (disabled)', () => {
+    const config = {
+      provider: {
+        type: 'ollama',
+        baseURL: 'http://localhost:11434/api',
+        model: 'llama3.2',
+        reflectionLoops: 0,
+      },
+    };
+    const result = ConfigSchema.parse(config);
+    expect(result.provider.reflectionLoops).toBe(0);
+  });
 });
