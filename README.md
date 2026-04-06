@@ -104,6 +104,24 @@ Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더
 - 기타 도구: JSON 결과를 콘솔 2줄로 truncation
 - 에러: 전체 메시지 표시
 
+### 응답 품질 관리
+
+LLM 응답의 정확성을 높이기 위한 설정을 제공합니다.
+
+```json
+{
+  "provider": {
+    "temperature": 0.3,
+    "reflectionLoops": 2
+  }
+}
+```
+
+- **temperature** (0.0~2.0, 기본값: 0.7): LLM의 창의성 수준. 낮을수록 보수적이고 정확한 답변.
+- **reflectionLoops** (0~5, 기본값: 2): 응답 후 자기 검증 횟수. 0이면 비활성화.
+
+Self-reflection loop는 LLM이 자신의 응답을 검토하여, 도구 결과에 없는 정보를 날조하지 않았는지, 사용자의 질문에 정확히 답했는지 확인합니다. 검토 결과 문제가 없으면 `[LGTM]`으로 즉시 통과하고, 수정이 필요하면 수정된 응답을 다시 한번 검토합니다. 120B 이상의 모델에서 효과적입니다.
+
 ### 대화 기록 관리
 
 SQLite 기반 세션 저장 및 복원 기능을 제공합니다. 이전 대화를 이어서 진행할 수 있습니다.
@@ -160,7 +178,9 @@ cp privateclaw.config.example.json privateclaw.config.json
   "provider": {
     "type": "ollama",
     "baseURL": "http://localhost:11434/api",
-    "model": "llama3.2"
+    "model": "llama3.2",
+    "temperature": 0.3,
+    "reflectionLoops": 2
   },
   "security": {
     "allowedDomains": ["localhost"],
@@ -221,5 +241,5 @@ pnpm dev -- chat
 | CLI | Commander.js | CLI 인터페이스 |
 | 세션 저장 | SQLite (`better-sqlite3`) | 로컬 저장소 |
 | 스키마 | Zod | 타입 안전한 설정/도구 정의 |
-| 테스트 | Vitest | 81개 단위 테스트 |
+| 테스트 | Vitest | 85개 단위 테스트 |
 | 패키지 관리 | pnpm | |
