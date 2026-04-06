@@ -171,6 +171,8 @@ cp privateclaw.config.example.json privateclaw.config.json
 
 지원되는 프로바이더 타입: `openai`, `anthropic`, `ollama`
 
+> **주의:** `allowedDomains`를 설정하는 경우, LLM 프로바이더의 도메인(예: `localhost`)도 반드시 포함해야 합니다. 미포함 시 LLM 연결이 차단됩니다.
+
 ### 빌드 및 PATH 등록
 
 ```bash
@@ -186,7 +188,21 @@ pnpm run setup   # 빌드 + 글로벌 링크
 privateclaw chat                    # 새 대화 시작
 privateclaw chat -s <session-id>    # 이전 세션 이어서 대화
 privateclaw sessions                # 저장된 세션 목록 보기
+privateclaw domains                 # 허용된 도메인 목록 조회
 ```
+
+### 채팅 내 명령어
+
+대화 중 사용할 수 있는 슬래시 명령어:
+
+| 명령어 | 설명 |
+|--------|------|
+| `/help` | 사용 가능한 명령어 목록 표시 |
+| `/domains` | 현재 허용된 도메인 목록 조회 |
+| `/reload` | config 파일을 다시 읽어 설정 반영 (재시작 불필요) |
+| `/quit` | 대화 종료 |
+
+`privateclaw.config.json`을 수정한 경우 (예: 도메인 추가, 프로바이더 변경, 스킬 등록), 채팅 중 `/reload`를 입력하면 재시작 없이 즉시 반영됩니다.
 
 ### 개발 모드
 
