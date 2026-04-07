@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { bashExecTool } from '../../src/tools/bash-exec.js';
+import { assertToolStructure } from './helpers.js';
 
 describe('bashExecTool', () => {
   it('has correct name and description', () => {
@@ -29,5 +31,37 @@ describe('bashExecTool', () => {
       timeout: 500,
     });
     expect(result.exitCode).not.toBe(0);
+  });
+});
+
+describe('bashExecTool inputSchema and AI SDK path', () => {
+  it('has valid tool structure with inputSchema', () => {
+    assertToolStructure(bashExecTool);
+  });
+
+  it('inputSchema accepts valid input with command only', () => {
+    const schema = bashExecTool.tool.inputSchema as z.ZodSchema;
+    const result = schema.parse({ command: 'echo hi' });
+    expect(result.command).toBe('echo hi');
+    expect(result.timeout).toBeUndefined();
+  });
+
+  it('inputSchema accepts optional timeout', () => {
+    const schema = bashExecTool.tool.inputSchema as z.ZodSchema;
+    const result = schema.parse({ command: 'echo hi', timeout: 5000 });
+    expect(result.timeout).toBe(5000);
+  });
+
+  it('inputSchema rejects missing command', () => {
+    const schema = bashExecTool.tool.inputSchema as z.ZodSchema;
+    expect(() => schema.parse({})).toThrow();
+  });
+
+  it('tool.execute works when called via inputSchema parse (AI SDK path)', async () => {
+    const schema = bashExecTool.tool.inputSchema as z.ZodSchema;
+    const parsedInput = schema.parse({ command: 'echo sdk-path' });
+    const result = await bashExecTool.tool.execute(parsedInput, { toolCallId: 'test', messages: [] });
+    expect(result.stdout.trim()).toBe('sdk-path');
+    expect(result.exitCode).toBe(0);
   });
 });

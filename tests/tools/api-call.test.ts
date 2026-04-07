@@ -2,7 +2,9 @@ import { writeFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { describe, it, expect, vi } from 'vitest';
+import { z } from 'zod';
 import { createApiCallTool } from '../../src/tools/api-call.js';
+import { assertToolStructure } from './helpers.js';
 
 describe('createApiCallTool', () => {
   it('has correct name and description', () => {
@@ -337,5 +339,55 @@ describe('createApiCallTool', () => {
     });
 
     expect(result.error).toContain('TOOL FAILED');
+  });
+});
+
+describe('createApiCallTool inputSchema and AI SDK path', () => {
+  it('has valid tool structure with inputSchema', () => {
+    const apiCall = createApiCallTool(globalThis.fetch);
+    assertToolStructure(apiCall);
+  });
+
+  it('inputSchema accepts valid GET input', () => {
+    const apiCall = createApiCallTool(globalThis.fetch);
+    const schema = apiCall.tool.inputSchema as z.ZodSchema;
+    const result = schema.parse({ url: 'https://api.example.com', method: 'GET' });
+    expect(result.url).toBe('https://api.example.com');
+    expect(result.method).toBe('GET');
+  });
+
+  it('inputSchema rejects missing url', () => {
+    const apiCall = createApiCallTool(globalThis.fetch);
+    const schema = apiCall.tool.inputSchema as z.ZodSchema;
+    expect(() => schema.parse({ method: 'GET' })).toThrow();
+  });
+
+  it('inputSchema rejects invalid method', () => {
+    const apiCall = createApiCallTool(globalThis.fetch);
+    const schema = apiCall.tool.inputSchema as z.ZodSchema;
+    expect(() => schema.parse({ url: 'https://api.example.com', method: 'INVALID' })).toThrow();
+  });
+
+  it('inputSchema accepts all valid HTTP methods', () => {
+    const apiCall = createApiCallTool(globalThis.fetch);
+    const schema = apiCall.tool.inputSchema as z.ZodSchema;
+    for (const method of ['GET', 'POST', 'PATCH', 'PUT', 'DELETE']) {
+      const result = schema.parse({ url: 'https://example.com', method });
+      expect(result.method).toBe(method);
+    }
+  });
+
+  it('tool.execute works when called via inputSchema parse (AI SDK path)', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers(),
+      text: async () => 'sdk api test',
+    });
+    const apiCall = createApiCallTool(mockFetch as unknown as typeof fetch);
+    const schema = apiCall.tool.inputSchema as z.ZodSchema;
+    const parsedInput = schema.parse({ url: 'https://api.example.com/data', method: 'GET' });
+    const result = await apiCall.tool.execute(parsedInput, { toolCallId: 'test', messages: [] });
+    expect(result.body).toBe('sdk api test');
+    expect(result.status).toBe(200);
   });
 });

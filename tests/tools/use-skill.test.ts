@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { z } from 'zod';
 import { createUseSkillTool } from '../../src/tools/use-skill.js';
+import { assertToolStructure } from './helpers.js';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -49,5 +51,35 @@ describe('createUseSkillTool', () => {
     const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
     const result = await tool.execute({ name: 'wrong' });
     expect(result.error).toContain('my-skill');
+  });
+});
+
+describe('createUseSkillTool inputSchema and AI SDK path', () => {
+  const skills = [{ name: 'my-skill', description: 'A test skill' }];
+
+  it('has valid tool structure with inputSchema', () => {
+    const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
+    assertToolStructure(tool);
+  });
+
+  it('inputSchema accepts valid name', () => {
+    const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
+    const schema = tool.tool.inputSchema as z.ZodSchema;
+    const result = schema.parse({ name: 'my-skill' });
+    expect(result.name).toBe('my-skill');
+  });
+
+  it('inputSchema rejects missing name', () => {
+    const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
+    const schema = tool.tool.inputSchema as z.ZodSchema;
+    expect(() => schema.parse({})).toThrow();
+  });
+
+  it('tool.execute works when called via inputSchema parse (AI SDK path)', async () => {
+    const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
+    const schema = tool.tool.inputSchema as z.ZodSchema;
+    const parsedInput = schema.parse({ name: 'my-skill' });
+    const result = await tool.tool.execute(parsedInput, { toolCallId: 'test', messages: [] });
+    expect(result.content).toContain('# My Skill');
   });
 });
