@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { zodSchema } from 'ai';
 
 interface WebFetchResult {
   status?: number;
@@ -31,7 +30,7 @@ export function createWebFetchTool(fetchFn: typeof globalThis.fetch) {
     description: 'Fetch a URL and return the response body. Respects domain whitelist.',
     tool: {
       description: 'Fetch a URL and return the response body. Respects domain whitelist.',
-      inputSchema: zodSchema(parameters),
+      inputSchema: parameters,
       execute: async ({ url }: z.infer<typeof parameters>): Promise<WebFetchResult> => {
         return doFetch(fetchFn, url);
       },
