@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zodSchema } from 'ai';
 import { loadSkillContent } from '../skills/loader.js';
 import type { SkillConfig } from '../skills/types.js';
 
@@ -42,7 +43,7 @@ export function createUseSkillTool(skills: SkillConfig[], skillsDir: string) {
     description: 'Load a skill document by name. The skill contains workflow instructions to follow.',
     tool: {
       description: 'Load a skill document by name. The skill contains workflow instructions to follow. Call this when you need to follow a specific workflow or procedure.',
-      parameters,
+      inputSchema: zodSchema(parameters),
       execute: async ({ name }: z.infer<typeof parameters>): Promise<UseSkillResult> => {
         return doLoadSkill(name, registeredNames, skills, skillsDir);
       },

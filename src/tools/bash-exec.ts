@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zodSchema } from 'ai';
 import { spawnSync } from 'node:child_process';
 
 interface BashResult {
@@ -31,7 +32,7 @@ export const bashExecTool = {
   description: 'Execute a bash command and return stdout, stderr, and exit code.',
   tool: {
     description: 'Execute a bash command and return stdout, stderr, and exit code.',
-    parameters,
+    inputSchema: zodSchema(parameters),
     execute: async ({ command, timeout }: z.infer<typeof parameters>): Promise<BashResult> => {
       return executeBash(command, timeout);
     },

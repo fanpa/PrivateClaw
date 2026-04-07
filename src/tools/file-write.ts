@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zodSchema } from 'ai';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
@@ -12,7 +13,7 @@ export const fileWriteTool = {
   description: 'Write content to a file at the given path. Creates parent directories if needed.',
   tool: {
     description: 'Write content to a file at the given path. Creates parent directories if needed.',
-    parameters,
+    inputSchema: zodSchema(parameters),
     execute: async ({ filePath, content }: z.infer<typeof parameters>) => {
       await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, content, 'utf-8');
