@@ -14,6 +14,10 @@
     {
       "name": "failure-analysis",
       "description": "서비스 장애나 에러 로그를 분석하여 근본 원인과 해결 방안을 제시합니다."
+    },
+    {
+      "name": "file-upload-api",
+      "description": "파일(이미지, PDF, CSV 등)과 JSON 데이터를 multipart/form-data로 API에 업로드합니다."
     }
   ],
   "skillsDir": "./skills"
@@ -32,6 +36,22 @@
 3. Timeout 에러인 경우: 서버 응답 지연으로 판단합니다.
 4. 분석 결과를 에러 유형, 근본 원인, 권장 조치 형식으로 요약합니다.
 ```
+
+파일 업로드 스킬 예시 (`skills/file-upload-api/skill.md`):
+
+```markdown
+# File Upload API
+
+## Workflow
+
+1. 사용자에게 업로드할 파일 경로와 함께 전송할 데이터(payload)를 확인합니다.
+2. JSON 데이터가 있으면 formData.fields.data에 JSON.stringify한 문자열로 넣습니다.
+3. 파일은 formData.files 배열에 fieldName, filePath를 지정합니다.
+4. api_call 도구를 호출합니다. Content-Type 헤더는 직접 설정하지 않습니다.
+5. 응답 status와 body를 확인하여 결과를 사용자에게 알립니다.
+```
+
+LLM은 `use_skill` 도구로 스킬을 로드한 뒤 워크플로우에 따라 `api_call`의 `formData` 파라미터를 구성합니다. 파일 업로드가 필요한 상황에서 `file-upload-api` 스킬을 사용하면 LLM이 올바른 multipart 요청 구조를 자동으로 만듭니다.
 
 ### 도메인 화이트리스트 보안
 
