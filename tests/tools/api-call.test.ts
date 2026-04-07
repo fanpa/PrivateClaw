@@ -340,6 +340,46 @@ describe('createApiCallTool', () => {
 
     expect(result.error).toContain('TOOL FAILED');
   });
+
+  describe('tool object (AI SDK path)', () => {
+    it('has inputSchema defined on tool object', () => {
+      const apiCall = createApiCallTool(globalThis.fetch);
+      expect(apiCall.tool.inputSchema).toBeDefined();
+    });
+
+    it('inputSchema parses valid input', () => {
+      const apiCall = createApiCallTool(globalThis.fetch);
+      const schema = apiCall.tool.inputSchema as import('zod').ZodSchema;
+      const result = schema.parse({ url: 'https://api.example.com', method: 'GET' });
+      expect(result.url).toBe('https://api.example.com');
+      expect(result.method).toBe('GET');
+    });
+
+    it('inputSchema rejects invalid method', () => {
+      const apiCall = createApiCallTool(globalThis.fetch);
+      const schema = apiCall.tool.inputSchema as import('zod').ZodSchema;
+      expect(() => schema.parse({ url: 'https://api.example.com', method: 'INVALID' })).toThrow();
+    });
+
+    it('inputSchema rejects missing url', () => {
+      const apiCall = createApiCallTool(globalThis.fetch);
+      const schema = apiCall.tool.inputSchema as import('zod').ZodSchema;
+      expect(() => schema.parse({ method: 'GET' })).toThrow();
+    });
+
+    it('tool.execute works via inputSchema parse (simulates AI SDK call)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        status: 200,
+        headers: new Headers(),
+        text: async () => 'sdk api result',
+      });
+      const apiCall = createApiCallTool(mockFetch as unknown as typeof fetch);
+      const schema = apiCall.tool.inputSchema as import('zod').ZodSchema;
+      const parsedInput = schema.parse({ url: 'https://api.example.com', method: 'GET' });
+      const result = await apiCall.tool.execute(parsedInput, { toolCallId: 'test', messages: [] } as never);
+      expect(result.body).toBe('sdk api result');
+    });
+  });
 });
 
 describe('createApiCallTool inputSchema and AI SDK path', () => {

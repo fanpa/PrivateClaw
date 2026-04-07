@@ -52,6 +52,34 @@ describe('createUseSkillTool', () => {
     const result = await tool.execute({ name: 'wrong' });
     expect(result.error).toContain('my-skill');
   });
+
+  describe('tool object (AI SDK path)', () => {
+    it('has inputSchema defined on tool object', () => {
+      const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
+      expect(tool.tool.inputSchema).toBeDefined();
+    });
+
+    it('inputSchema parses valid input', () => {
+      const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
+      const schema = tool.tool.inputSchema as import('zod').ZodSchema;
+      const result = schema.parse({ name: 'my-skill' });
+      expect(result.name).toBe('my-skill');
+    });
+
+    it('inputSchema rejects missing name', () => {
+      const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
+      const schema = tool.tool.inputSchema as import('zod').ZodSchema;
+      expect(() => schema.parse({})).toThrow();
+    });
+
+    it('tool.execute works via inputSchema parse (simulates AI SDK call)', async () => {
+      const tool = createUseSkillTool(skills, TEST_SKILLS_DIR);
+      const schema = tool.tool.inputSchema as import('zod').ZodSchema;
+      const parsedInput = schema.parse({ name: 'my-skill' });
+      const result = await tool.tool.execute(parsedInput, { toolCallId: 'test', messages: [] } as never);
+      expect(result.content).toContain('# My Skill');
+    });
+  });
 });
 
 describe('createUseSkillTool inputSchema and AI SDK path', () => {

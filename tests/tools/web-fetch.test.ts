@@ -70,6 +70,39 @@ describe('createWebFetchTool', () => {
     expect(result.error).toContain('fetch failed');
     expect(result.error).toContain('getaddrinfo ENOTFOUND');
   });
+
+  describe('tool object (AI SDK path)', () => {
+    it('has inputSchema defined on tool object', () => {
+      const webFetch = createWebFetchTool(globalThis.fetch);
+      expect(webFetch.tool.inputSchema).toBeDefined();
+    });
+
+    it('inputSchema parses valid input', () => {
+      const webFetch = createWebFetchTool(globalThis.fetch);
+      const schema = webFetch.tool.inputSchema as import('zod').ZodSchema;
+      const result = schema.parse({ url: 'https://example.com' });
+      expect(result.url).toBe('https://example.com');
+    });
+
+    it('inputSchema rejects missing url', () => {
+      const webFetch = createWebFetchTool(globalThis.fetch);
+      const schema = webFetch.tool.inputSchema as import('zod').ZodSchema;
+      expect(() => schema.parse({})).toThrow();
+    });
+
+    it('tool.execute works via inputSchema parse (simulates AI SDK call)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: async () => 'sdk fetch result',
+      });
+      const webFetch = createWebFetchTool(mockFetch as unknown as typeof fetch);
+      const schema = webFetch.tool.inputSchema as import('zod').ZodSchema;
+      const parsedInput = schema.parse({ url: 'https://example.com' });
+      const result = await webFetch.tool.execute(parsedInput, { toolCallId: 'test', messages: [] } as never);
+      expect(result.body).toBe('sdk fetch result');
+    });
+  });
 });
 
 describe('createWebFetchTool inputSchema and AI SDK path', () => {
