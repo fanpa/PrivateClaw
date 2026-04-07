@@ -1,6 +1,7 @@
 import { readFile } from 'fs/promises';
 import { basename, extname } from 'path';
 import { z } from 'zod';
+import { zodSchema } from 'ai';
 
 interface ApiCallResult {
   status?: number;
@@ -128,7 +129,7 @@ export function createApiCallTool(
     description: 'Make an HTTP API call with specified method, headers, and body. Supports GET, POST, PATCH, PUT, DELETE. Respects domain whitelist.',
     tool: {
       description: 'Make an HTTP API call with specified method, headers, and body. Supports GET, POST, PATCH, PUT, DELETE. Respects domain whitelist.',
-      parameters,
+      inputSchema: zodSchema(parameters),
       execute: async (input: z.infer<typeof parameters>): Promise<ApiCallResult> => {
         return doApiCall(fetchFn, defaultHeaders, input);
       },
