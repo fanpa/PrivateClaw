@@ -1,7 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { z } from 'zod';
 import { createWebFetchTool } from '../../src/tools/web-fetch.js';
-import { assertToolStructure } from './helpers.js';
 
 describe('createWebFetchTool', () => {
   it('has correct name and description', () => {
@@ -102,38 +100,5 @@ describe('createWebFetchTool', () => {
       const result = await webFetch.tool.execute(parsedInput, { toolCallId: 'test', messages: [] } as never);
       expect(result.body).toBe('sdk fetch result');
     });
-  });
-});
-
-describe('createWebFetchTool inputSchema and AI SDK path', () => {
-  it('has valid tool structure with inputSchema', () => {
-    const webFetch = createWebFetchTool(globalThis.fetch);
-    assertToolStructure(webFetch);
-  });
-
-  it('inputSchema accepts valid url', () => {
-    const webFetch = createWebFetchTool(globalThis.fetch);
-    const schema = webFetch.tool.inputSchema as z.ZodSchema;
-    const result = schema.parse({ url: 'https://example.com' });
-    expect(result.url).toBe('https://example.com');
-  });
-
-  it('inputSchema rejects missing url', () => {
-    const webFetch = createWebFetchTool(globalThis.fetch);
-    const schema = webFetch.tool.inputSchema as z.ZodSchema;
-    expect(() => schema.parse({})).toThrow();
-  });
-
-  it('tool.execute works when called via inputSchema parse (AI SDK path)', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: async () => 'sdk fetch test',
-    });
-    const webFetch = createWebFetchTool(mockFetch as unknown as typeof fetch);
-    const schema = webFetch.tool.inputSchema as z.ZodSchema;
-    const parsedInput = schema.parse({ url: 'https://example.com' });
-    const result = await webFetch.tool.execute(parsedInput, { toolCallId: 'test', messages: [] });
-    expect(result.body).toBe('sdk fetch test');
   });
 });

@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { z } from 'zod';
 import { fileWriteTool } from '../../src/tools/file-write.js';
-import { assertToolStructure } from './helpers.js';
 import { readFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -65,37 +63,5 @@ describe('fileWriteTool', () => {
       expect(result).toContain('Written');
       expect(readFileSync(filePath, 'utf-8')).toBe('sdk write');
     });
-  });
-});
-
-describe('fileWriteTool inputSchema and AI SDK path', () => {
-  it('has valid tool structure with inputSchema', () => {
-    assertToolStructure(fileWriteTool);
-  });
-
-  it('inputSchema accepts valid input', () => {
-    const schema = fileWriteTool.tool.inputSchema as z.ZodSchema;
-    const result = schema.parse({ filePath: '/foo/bar.txt', content: 'hello' });
-    expect(result.filePath).toBe('/foo/bar.txt');
-    expect(result.content).toBe('hello');
-  });
-
-  it('inputSchema rejects missing filePath', () => {
-    const schema = fileWriteTool.tool.inputSchema as z.ZodSchema;
-    expect(() => schema.parse({ content: 'hello' })).toThrow();
-  });
-
-  it('inputSchema rejects missing content', () => {
-    const schema = fileWriteTool.tool.inputSchema as z.ZodSchema;
-    expect(() => schema.parse({ filePath: '/foo/bar.txt' })).toThrow();
-  });
-
-  it('tool.execute works when called via inputSchema parse (AI SDK path)', async () => {
-    const filePath = join(TEST_DIR, 'sdk-path.txt');
-    const schema = fileWriteTool.tool.inputSchema as z.ZodSchema;
-    const parsedInput = schema.parse({ filePath, content: 'sdk write test' });
-    const result = await fileWriteTool.tool.execute(parsedInput, { toolCallId: 'test', messages: [] });
-    expect(result).toContain('Written');
-    expect(readFileSync(filePath, 'utf-8')).toBe('sdk write test');
   });
 });
