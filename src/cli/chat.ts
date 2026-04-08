@@ -179,6 +179,7 @@ export async function startChat(
           defaultHeaders: currentOptions.defaultHeaders,
           skills: currentOptions.skills,
           skillsDir: currentOptions.skillsDir,
+          configPath: currentOptions.configPath,
           onChunk: renderChunk,
           onReflecting: renderReflecting,
           onReflectionDone: renderReflectionDone,

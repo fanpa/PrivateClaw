@@ -16,6 +16,7 @@ export interface RunAgentTurnOptions {
   defaultHeaders?: Record<string, Record<string, string>>;
   skills?: SkillConfig[];
   skillsDir?: string;
+  configPath?: string;
   onChunk?: (chunk: string) => void;
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
   onToolResult?: (toolName: string, result: unknown) => void;
@@ -76,6 +77,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     defaultHeaders: options.defaultHeaders,
     skills: options.skills,
     skillsDir: options.skillsDir,
+    configPath: options.configPath,
     onApproval: options.onToolApproval,
   });
 
