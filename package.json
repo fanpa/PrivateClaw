@@ -1,6 +1,6 @@
 {
   "name": "privateclaw",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A self-hosted AI agent CLI",
   "type": "module",
   "main": "dist/src/index.js",
