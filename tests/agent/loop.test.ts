@@ -6,7 +6,7 @@ vi.mock('ai', async () => {
   const actual = await vi.importActual('ai');
   return {
     ...actual,
-    streamText: vi.fn().mockReturnValue({
+    streamText: vi.fn().mockImplementation(() => ({
       fullStream: (async function* () {
         yield { type: 'text-delta', text: 'Hello, ' };
         yield { type: 'text-delta', text: 'world!' };
@@ -16,7 +16,8 @@ vi.mock('ai', async () => {
         messages: [{ role: 'assistant', content: 'Hello, world!' }],
       }),
       finishReason: Promise.resolve('stop'),
-    }),
+    })),
+    generateText: vi.fn().mockResolvedValue({ text: '[LGTM]' }),
   };
 });
 
@@ -76,6 +77,73 @@ describe('runAgentTurn', () => {
 
     expect(getBuiltinTools).toHaveBeenCalledWith(
       expect.objectContaining({ onApproval: onToolApproval }),
+    );
+  });
+
+  it('does NOT call onChunk during streaming when reflectionLoops > 0; emits full text once after LGTM', async () => {
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+    const chunks: string[] = [];
+
+    await runAgentTurn({
+      messages,
+      model: {} as any,
+      reflectionLoops: 1,
+      onChunk: (chunk) => chunks.push(chunk),
+    });
+
+    // Text is buffered; emitted once after reflection (LGTM, no change)
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toBe('Hello, world!');
+  });
+
+  it('emits updated text via onChunk after reflection changes the answer', async () => {
+    const { generateText } = await import('ai');
+    (generateText as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      text: 'Corrected answer.',
+    });
+
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+    const chunks: string[] = [];
+
+    const result = await runAgentTurn({
+      messages,
+      model: {} as any,
+      reflectionLoops: 1,
+      onChunk: (chunk) => chunks.push(chunk),
+    });
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toBe('Corrected answer.');
+    expect(result.text).toBe('Corrected answer.');
+  });
+
+  it('passes onBeforeToolExecute to getBuiltinTools when reflectionLoops > 0', async () => {
+    const { getBuiltinTools } = await import('../../src/tools/registry.js');
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+
+    await runAgentTurn({
+      messages,
+      model: {} as any,
+      reflectionLoops: 1,
+    });
+
+    expect(getBuiltinTools).toHaveBeenCalledWith(
+      expect.objectContaining({ onBeforeToolExecute: expect.any(Function) }),
+    );
+  });
+
+  it('does not pass onBeforeToolExecute to getBuiltinTools when reflectionLoops is 0', async () => {
+    const { getBuiltinTools } = await import('../../src/tools/registry.js');
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+
+    await runAgentTurn({
+      messages,
+      model: {} as any,
+      reflectionLoops: 0,
+    });
+
+    expect(getBuiltinTools).toHaveBeenCalledWith(
+      expect.objectContaining({ onBeforeToolExecute: undefined }),
     );
   });
 
