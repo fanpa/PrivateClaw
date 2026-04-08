@@ -19,13 +19,16 @@ export function buildSystemPrompt(skills: SkillConfig[] = []): string {
 - file_write: Write content to a file at a given path
 - bash_exec: Execute a bash command and return the output
 - web_fetch: Fetch a URL and return the response body
-- api_call: Make an HTTP API call (GET, POST, PATCH, PUT, DELETE) with custom headers and body`;
+- api_call: Make an HTTP API call (GET, POST, PATCH, PUT, DELETE) with custom headers and body
+- create_skill: Create a new reusable skill by writing a skill.md file and registering it in the config`;
 
   if (skills.length > 0) {
     prompt += `\n- use_skill: Load a skill document to follow its workflow instructions`;
     prompt += `\n\nAvailable skills:\n${listSkills(skills)}`;
     prompt += `\nWhen a task matches a skill description, use the use_skill tool to load it, then follow its workflow instructions step by step.`;
   }
+
+  prompt += `\nWhen a user asks to create a new skill or workflow, use create_skill. Have a conversation to understand the workflow steps, then generate a complete skill.md document.`;
 
   prompt += `
 
