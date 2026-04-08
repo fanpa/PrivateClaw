@@ -65,4 +65,37 @@ describe('createApprovalHandler', () => {
 
     expect(rl.question).toHaveBeenCalledTimes(2); // prompted both times
   });
+
+  it('allow_always for use_skill:yield-report does not skip prompt for use_skill:email', async () => {
+    const handler = createApprovalHandler(rl, manager);
+
+    // First call: use_skill with name=yield-report, user answers 'a'
+    (rl.question as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      (_: string, cb: (ans: string) => void) => cb('a'),
+    );
+    await handler('use_skill', { name: 'yield-report' });
+
+    // Second call: use_skill with name=email — must still prompt
+    (rl.question as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      (_: string, cb: (ans: string) => void) => cb('y'),
+    );
+    const second = await handler('use_skill', { name: 'email' });
+
+    expect(rl.question).toHaveBeenCalledTimes(2); // both prompted
+    expect(second).toBe('allow_once');
+  });
+
+  it('allow_always for use_skill:yield-report auto-approves second call for same skill', async () => {
+    const handler = createApprovalHandler(rl, manager);
+
+    (rl.question as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      (_: string, cb: (ans: string) => void) => cb('a'),
+    );
+    await handler('use_skill', { name: 'yield-report' });
+
+    const second = await handler('use_skill', { name: 'yield-report' });
+
+    expect(rl.question).toHaveBeenCalledTimes(1); // only first call prompted
+    expect(second).toBe('allow_once');
+  });
 });

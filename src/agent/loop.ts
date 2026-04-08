@@ -68,6 +68,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
 
   const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills);
   const effectiveModel = model ?? getModel();
+  const loops = options.reflectionLoops ?? 0;
 
   // Build tools once; reused across steps so approval callbacks stay consistent.
   const toolSet = getBuiltinTools({
@@ -104,7 +105,8 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
         case 'text-delta':
           fullText += part.text;
           stepHasText = true;
-          onChunk?.(part.text);
+          // When reflection is enabled, buffer text and hold streaming until after LGTM
+          if (loops === 0) onChunk?.(part.text);
           break;
         case 'tool-call': {
           stepHasToolCall = true;
@@ -135,7 +137,6 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   }
 
   // Self-reflection loop
-  const loops = options.reflectionLoops ?? 0;
   let finalText = fullText;
 
   if (loops > 0 && finalText.length > 0) {
@@ -151,6 +152,8 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
       if (!reflection.changed) break;
       finalText = reflection.text;
     }
+    // Emit the (possibly revised) text after reflection
+    onChunk?.(finalText);
   }
 
   return {

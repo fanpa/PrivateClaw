@@ -13,6 +13,7 @@ export interface BuiltinToolsOptions {
   skills?: SkillConfig[];
   skillsDir?: string;
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
+  onBeforeToolExecute?: () => Promise<void>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,16 +21,20 @@ function wrapWithApproval(
   toolName: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tool: any,
-  onApproval: NonNullable<BuiltinToolsOptions['onApproval']>,
+  onApproval: BuiltinToolsOptions['onApproval'],
+  onBeforeToolExecute: BuiltinToolsOptions['onBeforeToolExecute'],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   const originalExecute = tool.execute as (args: unknown, options: unknown) => Promise<unknown>;
   return {
     ...tool,
     execute: async (args: unknown, executeOptions: unknown) => {
-      const decision = await onApproval(toolName, args);
-      if (decision === 'deny') {
-        return { error: 'Tool execution denied by user.' };
+      await onBeforeToolExecute?.();
+      if (onApproval) {
+        const decision = await onApproval(toolName, args);
+        if (decision === 'deny') {
+          return { error: 'Tool execution denied by user.' };
+        }
       }
       return originalExecute(args, executeOptions);
     },
@@ -55,10 +60,9 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     tools[useSkill.name] = useSkill.tool;
   }
 
-  if (options.onApproval) {
-    const onApproval = options.onApproval;
+  if (options.onApproval || options.onBeforeToolExecute) {
     for (const name of Object.keys(tools)) {
-      tools[name] = wrapWithApproval(name, tools[name], onApproval);
+      tools[name] = wrapWithApproval(name, tools[name], options.onApproval, options.onBeforeToolExecute);
     }
   }
 

@@ -104,6 +104,20 @@ function renderHttpResult(toolName: string, result: Record<string, unknown>): vo
 export function renderToolResult(toolName: string, result: unknown): void {
   const res = result as Record<string, unknown> | undefined;
 
+  // use_skill: suppress full skill.md content; show compact summary
+  if (toolName === 'use_skill') {
+    if (res?.error) {
+      console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.red(String(res.error)));
+    } else {
+      const contentBytes =
+        typeof res?.content === 'string'
+          ? formatBytes(Buffer.byteLength(res.content, 'utf-8'))
+          : '?';
+      console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(`skill loaded (${contentBytes})`));
+    }
+    return;
+  }
+
   // HTTP tool results (web_fetch, api_call) get summarized
   if (res && (toolName === 'web_fetch' || toolName === 'api_call') && ('status' in res || 'error' in res)) {
     renderHttpResult(toolName, res);

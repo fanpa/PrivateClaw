@@ -6,7 +6,7 @@ vi.mock('ai', async () => {
   const actual = await vi.importActual('ai');
   return {
     ...actual,
-    streamText: vi.fn().mockReturnValue({
+    streamText: vi.fn().mockImplementation(() => ({
       fullStream: (async function* () {
         yield { type: 'text-delta', text: 'Hello, ' };
         yield { type: 'text-delta', text: 'world!' };
@@ -16,7 +16,8 @@ vi.mock('ai', async () => {
         messages: [{ role: 'assistant', content: 'Hello, world!' }],
       }),
       finishReason: Promise.resolve('stop'),
-    }),
+    })),
+    generateText: vi.fn().mockResolvedValue({ text: '[LGTM]' }),
   };
 });
 
@@ -77,6 +78,43 @@ describe('runAgentTurn', () => {
     expect(getBuiltinTools).toHaveBeenCalledWith(
       expect.objectContaining({ onApproval: onToolApproval }),
     );
+  });
+
+  it('does NOT call onChunk during streaming when reflectionLoops > 0; emits full text once after LGTM', async () => {
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+    const chunks: string[] = [];
+
+    await runAgentTurn({
+      messages,
+      model: {} as any,
+      reflectionLoops: 1,
+      onChunk: (chunk) => chunks.push(chunk),
+    });
+
+    // Text is buffered; emitted once after reflection (LGTM, no change)
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toBe('Hello, world!');
+  });
+
+  it('emits updated text via onChunk after reflection changes the answer', async () => {
+    const { generateText } = await import('ai');
+    (generateText as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      text: 'Corrected answer.',
+    });
+
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+    const chunks: string[] = [];
+
+    const result = await runAgentTurn({
+      messages,
+      model: {} as any,
+      reflectionLoops: 1,
+      onChunk: (chunk) => chunks.push(chunk),
+    });
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toBe('Corrected answer.');
+    expect(result.text).toBe('Corrected answer.');
   });
 
   it('does not abort in stream consumer when tool-call event is received with onToolApproval', async () => {

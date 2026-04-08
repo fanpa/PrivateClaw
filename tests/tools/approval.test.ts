@@ -76,4 +76,38 @@ describe('getBuiltinTools with onApproval', () => {
     expect(onApproval).toHaveBeenCalledTimes(1);
     expect(onApproval).toHaveBeenCalledWith('file_read', { filePath });
   });
+
+  it('calls onBeforeToolExecute before approval and execution', async () => {
+    const order: string[] = [];
+    const onBeforeToolExecute = vi.fn().mockImplementation(async () => {
+      order.push('before');
+    });
+    const onApproval = vi.fn().mockImplementation(async () => {
+      order.push('approval');
+      return 'allow_once' as const;
+    });
+
+    const tools = getBuiltinTools({ onApproval, onBeforeToolExecute });
+
+    const filePath = join(TEST_DIR, 'test.txt');
+    writeFileSync(filePath, 'hello');
+
+    await tools['file_read'].execute({ filePath }, {} as never);
+
+    expect(order).toEqual(['before', 'approval']);
+    expect(onBeforeToolExecute).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onBeforeToolExecute even when onApproval is not set', async () => {
+    const onBeforeToolExecute = vi.fn().mockResolvedValue(undefined);
+    const tools = getBuiltinTools({ onBeforeToolExecute });
+
+    const filePath = join(TEST_DIR, 'test.txt');
+    writeFileSync(filePath, 'hello');
+
+    const result = await tools['file_read'].execute({ filePath }, {} as never);
+
+    expect(onBeforeToolExecute).toHaveBeenCalledTimes(1);
+    expect(result).toBe('hello');
+  });
 });
