@@ -67,50 +67,78 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   } = options;
 
   const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills);
+  const effectiveModel = model ?? getModel();
 
-  const result = streamText({
-    model: model ?? getModel(),
-    system: effectivePrompt,
-    messages,
-    temperature: options.temperature,
-    tools: getBuiltinTools({
-      fetchFn: getRestrictedFetch(),
-      defaultHeaders: options.defaultHeaders,
-      skills: options.skills,
-      skillsDir: options.skillsDir,
-      onApproval: options.onToolApproval,
-    }),
-    stopWhen: stepCountIs(maxSteps),
+  // Build tools once; reused across steps so approval callbacks stay consistent.
+  const toolSet = getBuiltinTools({
+    fetchFn: getRestrictedFetch(),
+    defaultHeaders: options.defaultHeaders,
+    skills: options.skills,
+    skillsDir: options.skillsDir,
+    onApproval: options.onToolApproval,
   });
 
+  let currentMessages: ModelMessage[] = [...messages];
   let fullText = '';
-  for await (const part of result.fullStream) {
-    switch (part.type) {
-      case 'text-delta':
-        fullText += part.text;
-        onChunk?.(part.text);
-        break;
-      case 'tool-call': {
-        const callPart = part as unknown as { toolName: string; input: Record<string, unknown> };
-        options.onToolCall?.(callPart.toolName, callPart.input);
-        break;
-      }
-      case 'tool-result': {
-        const resultPart = part as unknown as { toolName: string; output: unknown };
-        options.onToolResult?.(resultPart.toolName, resultPart.output);
-        break;
+  let allResponseMessages: ModelMessage[] = [];
+
+  // Each iteration opens a fresh HTTP connection (one streamText call = one request).
+  // This prevents the TypeError: terminated that occurs when AI SDK's built-in
+  // multi-step reuses a connection whose previous streaming response was not fully
+  // drained before the next request was issued.
+  for (let step = 0; step < maxSteps; step++) {
+    const result = streamText({
+      model: effectiveModel,
+      system: effectivePrompt,
+      messages: currentMessages,
+      temperature: options.temperature,
+      tools: toolSet,
+      stopWhen: stepCountIs(1),
+    });
+
+    let stepHasToolCall = false;
+    let stepHasText = false;
+
+    for await (const part of result.fullStream) {
+      switch (part.type) {
+        case 'text-delta':
+          fullText += part.text;
+          stepHasText = true;
+          onChunk?.(part.text);
+          break;
+        case 'tool-call': {
+          stepHasToolCall = true;
+          const callPart = part as unknown as { toolName: string; input: Record<string, unknown> };
+          options.onToolCall?.(callPart.toolName, callPart.input);
+          break;
+        }
+        case 'tool-result': {
+          const resultPart = part as unknown as { toolName: string; output: unknown };
+          options.onToolResult?.(resultPart.toolName, resultPart.output);
+          break;
+        }
       }
     }
-  }
 
-  const response = await result.response;
+    // Await response after stream is fully consumed to ensure the underlying
+    // HTTP connection is properly drained before any subsequent request.
+    const response = await result.response;
+    const stepMessages = response.messages as ModelMessage[];
+    allResponseMessages = [...allResponseMessages, ...stepMessages];
+
+    // Stop if the model produced text (final answer), or if no tool calls were made.
+    if (stepHasText || !stepHasToolCall) break;
+
+    // Tool calls occurred without a final answer — carry messages forward so the
+    // next step sees the tool results.
+    currentMessages = [...currentMessages, ...stepMessages];
+  }
 
   // Self-reflection loop
   const loops = options.reflectionLoops ?? 0;
   let finalText = fullText;
 
   if (loops > 0 && finalText.length > 0) {
-    const effectiveModel = model ?? getModel();
     for (let i = 0; i < loops; i++) {
       options.onReflecting?.(i + 1);
       const reflection = await reflectOnResponse(
@@ -127,6 +155,6 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
 
   return {
     text: finalText,
-    responseMessages: response.messages as ModelMessage[],
+    responseMessages: allResponseMessages,
   };
 }
