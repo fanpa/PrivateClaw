@@ -4,6 +4,7 @@ import { bashExecTool } from './bash-exec.js';
 import { createWebFetchTool } from './web-fetch.js';
 import { createApiCallTool } from './api-call.js';
 import { createUseSkillTool } from './use-skill.js';
+import { createCreateSkillTool } from './create-skill.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
 
@@ -12,6 +13,7 @@ export interface BuiltinToolsOptions {
   defaultHeaders?: Record<string, Record<string, string>>;
   skills?: SkillConfig[];
   skillsDir?: string;
+  configPath?: string;
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
   onBeforeToolExecute?: () => Promise<void>;
 }
@@ -58,6 +60,14 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
   if (options.skills && options.skills.length > 0) {
     const useSkill = createUseSkillTool(options.skills, options.skillsDir ?? './skills');
     tools[useSkill.name] = useSkill.tool;
+  }
+
+  if (options.configPath) {
+    const createSkill = createCreateSkillTool(
+      options.skillsDir ?? './skills',
+      options.configPath,
+    );
+    tools[createSkill.name] = createSkill.tool;
   }
 
   if (options.onApproval || options.onBeforeToolExecute) {
