@@ -199,11 +199,28 @@ Agent가 코드를 실행할 때 격리된 샌드박스(Docker 컨테이너) 환
 
 Skill 시스템을 확장하여 커뮤니티 플러그인 생태계 지원.
 
-### Standalone 바이너리 배포 (예정)
-
-Node.js 설치 없이 실행 가능한 단독 바이너리 배포. Bun의 크로스 컴파일(`--target`)을 활용하여 Windows/Mac/Linux 바이너리를 한번에 생성.
-
 ## 설치 및 실행
+
+### Standalone 바이너리 (Node.js 불필요)
+
+[Releases](https://github.com/fanpa/PrivateClaw/releases) 페이지에서 OS에 맞는 바이너리를 다운로드하면 Node.js 설치 없이 바로 실행할 수 있습니다.
+
+| 파일 | 플랫폼 |
+|------|--------|
+| `privateclaw-linux-x64` | Linux (x64) |
+| `privateclaw-darwin-arm64` | macOS (Apple Silicon) |
+| `privateclaw-windows-x64.exe` | Windows (x64) |
+
+```bash
+# Linux/macOS
+chmod +x privateclaw-linux-x64
+./privateclaw-linux-x64 chat
+
+# Windows PowerShell
+.\privateclaw-windows-x64.exe chat
+```
+
+### 소스에서 설치
 
 ### 요구사항
 
