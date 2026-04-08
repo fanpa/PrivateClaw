@@ -258,6 +258,8 @@ privateclaw chat                    # 새 대화 시작
 privateclaw chat -s <session-id>    # 이전 세션 이어서 대화
 privateclaw sessions                # 저장된 세션 목록 보기
 privateclaw domains                 # 허용된 도메인 목록 조회
+privateclaw run -p "프롬프트"        # 비대화형 단일 실행
+privateclaw run -s skill-name       # 스킬 기반 실행
 ```
 
 ### 채팅 내 명령어
@@ -273,6 +275,35 @@ privateclaw domains                 # 허용된 도메인 목록 조회
 | `/quit` | 대화 종료 |
 
 `privateclaw.config.json`을 수정한 경우 (예: 도메인 추가, 프로바이더 변경, 스킬 등록), 채팅 중 `/reload`를 입력하면 재시작 없이 즉시 반영됩니다.
+
+### 비대화형 실행 (Headless Mode)
+
+`privateclaw run` 명령어로 대화 없이 단일 작업을 실행하고 결과를 stdout으로 출력합니다. 모든 도구는 자동 승인됩니다.
+
+```bash
+# 프롬프트 기반 실행
+privateclaw run -p "현재 시스템 상태를 확인해줘"
+
+# 스킬 기반 실행
+privateclaw run -s failure-analysis -p "이 로그를 분석해줘: /var/log/app.log"
+
+# 결과를 파일로 저장
+privateclaw run -s jira-daily-report > report.txt
+```
+
+OS의 cron과 조합하면 자동화된 스케줄링이 가능합니다:
+
+```bash
+# 매일 오전 9시에 Jira 이슈 정리 리포트 생성
+0 9 * * * cd /path/to/project && privateclaw run -s jira-daily-report > /var/reports/daily.txt
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `-p, --prompt <text>` | 실행할 프롬프트 |
+| `-s, --skill <name>` | 실행할 스킬 이름 |
+| `-c, --config <path>` | config 파일 경로 (기본: privateclaw.config.json) |
+| `-v, --verbose` | 상세 출력 모드 |
 
 ### 개발 모드
 
