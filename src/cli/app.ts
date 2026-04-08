@@ -8,6 +8,7 @@ import { isDomainAllowed } from '../security/domain-guard.js';
 import { SessionRepository } from '../session/repository.js';
 import { startChat } from './chat.js';
 import { renderError, renderSystemMessage, setVerbose } from './renderer.js';
+import { executeRun } from './run.js';
 
 export function initFromConfig(config: Config): void {
   if (config.security.allowedDomains.length > 0) {
@@ -105,6 +106,45 @@ export function createApp(): Command {
         console.log(`Allowed domains (${domains.length}):`);
         for (const d of domains) {
           console.log(`  ${d}`);
+        }
+      } catch (err) {
+        renderError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  program
+    .command('run')
+    .description('Execute a prompt or skill non-interactively (headless mode)')
+    .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
+    .option('-p, --prompt <text>', 'Prompt to execute')
+    .option('-s, --skill <name>', 'Skill to execute')
+    .option('-v, --verbose', 'Enable verbose output')
+    .action(async (opts: { config: string; prompt?: string; skill?: string; verbose?: boolean }) => {
+      if (!opts.prompt && !opts.skill) {
+        renderError('Either --prompt or --skill is required.');
+        process.exit(1);
+      }
+
+      try {
+        if (opts.verbose) setVerbose(true);
+        const config = loadConfig(opts.config);
+        initFromConfig(config);
+
+        const prompt = opts.prompt ?? `Execute the "${opts.skill}" skill workflow.`;
+
+        const output = await executeRun({
+          prompt,
+          skillName: opts.skill,
+          temperature: config.provider.temperature,
+          reflectionLoops: config.provider.reflectionLoops,
+          defaultHeaders: config.security.defaultHeaders,
+          skills: config.skills,
+          skillsDir: config.skillsDir,
+        });
+
+        if (output) {
+          process.stdout.write(output + '\n');
         }
       } catch (err) {
         renderError(err instanceof Error ? err.message : String(err));
