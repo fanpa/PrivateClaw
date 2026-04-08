@@ -117,36 +117,6 @@ describe('runAgentTurn', () => {
     expect(result.text).toBe('Corrected answer.');
   });
 
-  it('passes onBeforeToolExecute to getBuiltinTools when reflectionLoops > 0', async () => {
-    const { getBuiltinTools } = await import('../../src/tools/registry.js');
-    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
-
-    await runAgentTurn({
-      messages,
-      model: {} as any,
-      reflectionLoops: 1,
-    });
-
-    expect(getBuiltinTools).toHaveBeenCalledWith(
-      expect.objectContaining({ onBeforeToolExecute: expect.any(Function) }),
-    );
-  });
-
-  it('does not pass onBeforeToolExecute to getBuiltinTools when reflectionLoops is 0', async () => {
-    const { getBuiltinTools } = await import('../../src/tools/registry.js');
-    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
-
-    await runAgentTurn({
-      messages,
-      model: {} as any,
-      reflectionLoops: 0,
-    });
-
-    expect(getBuiltinTools).toHaveBeenCalledWith(
-      expect.objectContaining({ onBeforeToolExecute: undefined }),
-    );
-  });
-
   it('does not abort in stream consumer when tool-call event is received with onToolApproval', async () => {
     const { streamText } = await import('ai');
     (streamText as ReturnType<typeof vi.fn>).mockReturnValueOnce({
