@@ -24,13 +24,28 @@ import {
   renderReflectionDone,
 } from './renderer.js';
 
+function buildApprovalKey(toolName: string, args: unknown): string {
+  if (
+    toolName === 'use_skill' &&
+    args !== null &&
+    typeof args === 'object' &&
+    'name' in args &&
+    typeof (args as Record<string, unknown>).name === 'string'
+  ) {
+    return `use_skill:${(args as { name: string }).name}`;
+  }
+  return toolName;
+}
+
 export function createApprovalHandler(
   rl: readline.Interface,
   approvalManager: ToolApprovalManager,
 ) {
   return (toolName: string, args: unknown): Promise<ApprovalDecision> => {
-    if (!approvalManager.needsApproval(toolName)) {
-      approvalManager.consume(toolName);
+    const key = buildApprovalKey(toolName, args);
+
+    if (!approvalManager.needsApproval(key)) {
+      approvalManager.consume(key);
       return Promise.resolve('allow_once');
     }
 
@@ -41,11 +56,11 @@ export function createApprovalHandler(
         let decision: ApprovalDecision;
         if (choice === 'a') {
           decision = 'allow_always';
-          approvalManager.allowAlways(toolName);
+          approvalManager.allowAlways(key);
         } else if (choice === 'y') {
           decision = 'allow_once';
-          approvalManager.allowOnce(toolName);
-          approvalManager.consume(toolName);
+          approvalManager.allowOnce(key);
+          approvalManager.consume(key);
         } else {
           decision = 'deny';
         }
