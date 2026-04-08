@@ -139,6 +139,54 @@ describe('runAgentTurn', () => {
     expect(result.text).toBe('done');
   });
 
+  it('applies sliding window when maxHistoryMessages is set', async () => {
+    const { streamText } = await import('ai');
+    (streamText as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', text: 'ok' };
+      })(),
+      response: Promise.resolve({ messages: [{ role: 'assistant', content: 'ok' }] }),
+    });
+
+    // 6 messages, window of 4 → only last 4 sent
+    const messages: ModelMessage[] = [
+      { role: 'user', content: 'msg1' },
+      { role: 'assistant', content: 'resp1' },
+      { role: 'user', content: 'msg2' },
+      { role: 'assistant', content: 'resp2' },
+      { role: 'user', content: 'msg3' },
+      { role: 'assistant', content: 'resp3' },
+    ];
+
+    await runAgentTurn({ messages, model: {} as any, maxHistoryMessages: 4 });
+
+    const sentMessages = (streamText as ReturnType<typeof vi.fn>).mock.calls[0][0].messages;
+    expect(sentMessages).toHaveLength(4);
+    expect(sentMessages[0].content).toBe('msg2');
+    expect(sentMessages[3].content).toBe('resp3');
+  });
+
+  it('sends all messages when maxHistoryMessages is 0 (unlimited)', async () => {
+    const { streamText } = await import('ai');
+    (streamText as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', text: 'ok' };
+      })(),
+      response: Promise.resolve({ messages: [{ role: 'assistant', content: 'ok' }] }),
+    });
+
+    const messages: ModelMessage[] = [
+      { role: 'user', content: 'msg1' },
+      { role: 'assistant', content: 'resp1' },
+      { role: 'user', content: 'msg2' },
+    ];
+
+    await runAgentTurn({ messages, model: {} as any, maxHistoryMessages: 0 });
+
+    const sentMessages = (streamText as ReturnType<typeof vi.fn>).mock.calls[0][0].messages;
+    expect(sentMessages).toHaveLength(3);
+  });
+
   it('issues a separate streamText call per step to prevent TypeError: terminated on connection reuse', async () => {
     const { streamText } = await import('ai');
 

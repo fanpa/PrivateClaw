@@ -75,6 +75,7 @@ export interface ChatOptions {
   configPath?: string;
   temperature?: number;
   reflectionLoops?: number;
+  maxHistoryMessages?: number;
   defaultHeaders?: Record<string, Record<string, string>>;
   allowedDomains?: string[];
   skills?: SkillConfig[];
@@ -146,6 +147,7 @@ export async function startChat(
             ...currentOptions,
             temperature: config.provider.temperature,
             reflectionLoops: config.provider.reflectionLoops,
+            maxHistoryMessages: config.session.maxHistoryMessages,
             defaultHeaders: config.security.defaultHeaders,
             allowedDomains: config.security.allowedDomains,
             skills: config.skills,
@@ -183,6 +185,7 @@ export async function startChat(
           messages,
           temperature: currentOptions.temperature,
           reflectionLoops: currentOptions.reflectionLoops,
+          maxHistoryMessages: currentOptions.maxHistoryMessages,
           defaultHeaders: currentOptions.defaultHeaders,
           skills: currentOptions.skills,
           skillsDir: currentOptions.skillsDir,

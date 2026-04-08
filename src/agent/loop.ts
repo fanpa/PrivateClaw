@@ -10,6 +10,7 @@ export interface RunAgentTurnOptions {
   messages: ModelMessage[];
   systemPrompt?: string;
   maxSteps?: number;
+  maxHistoryMessages?: number;
   model?: LanguageModel;
   temperature?: number;
   reflectionLoops?: number;
@@ -28,6 +29,11 @@ export interface AgentTurnResult {
   text: string;
   responseMessages: ModelMessage[];
   aborted?: boolean;
+}
+
+function applySliding(messages: ModelMessage[], max: number): ModelMessage[] {
+  if (max <= 0 || messages.length <= max) return messages;
+  return messages.slice(-max);
 }
 
 async function reflectOnResponse(
@@ -69,6 +75,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills);
   const effectiveModel = model ?? getModel();
   const loops = options.reflectionLoops ?? 0;
+  const maxHistory = options.maxHistoryMessages ?? 0;
 
   // Build tools once; reused across steps so approval callbacks stay consistent.
   const toolSet = getBuiltinTools({
@@ -79,7 +86,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     onApproval: options.onToolApproval,
   });
 
-  let currentMessages: ModelMessage[] = [...messages];
+  let currentMessages: ModelMessage[] = applySliding([...messages], maxHistory);
   let fullText = '';
   let allResponseMessages: ModelMessage[] = [];
 
@@ -144,7 +151,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
       options.onReflecting?.(i + 1);
       const reflection = await reflectOnResponse(
         effectiveModel,
-        messages,
+        applySliding(messages, maxHistory),
         finalText,
         options.temperature,
       );

@@ -48,6 +48,7 @@ export function createApp(): Command {
           configPath: opts.config,
           temperature: config.provider.temperature,
           reflectionLoops: config.provider.reflectionLoops,
+          maxHistoryMessages: config.session.maxHistoryMessages,
           defaultHeaders: config.security.defaultHeaders,
           allowedDomains: config.security.allowedDomains,
           skills: config.skills,
