@@ -9,9 +9,9 @@ interface CreateSkillResult {
 }
 
 const parameters = z.object({
-  name: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/, 'Skill name must start with alphanumeric and contain only alphanumeric, hyphens, underscores').describe('Skill name (used as folder name, e.g. "log-analysis")'),
-  description: z.string().describe('One-line description of what the skill does'),
-  content: z.string().describe('Full markdown content for skill.md'),
+  name: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/, 'Skill name must start with alphanumeric and contain only alphanumeric, hyphens, underscores').describe('Folder name for the skill, e.g. "error-log-analysis" or "deploy-checklist"'),
+  description: z.string().describe('Short summary, e.g. "서버 에러 로그를 분석하여 근본 원인과 해결 방안을 제시합니다"'),
+  content: z.string().describe('Complete markdown document with title, description, and numbered workflow steps. Must include actionable instructions the LLM can follow.'),
 });
 
 function doCreateSkill(

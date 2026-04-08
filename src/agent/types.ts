@@ -28,9 +28,20 @@ export function buildSystemPrompt(skills: SkillConfig[] = []): string {
     prompt += `\nWhen a task matches a skill description, use the use_skill tool to load it, then follow its workflow instructions step by step.`;
   }
 
-  prompt += `\nWhen a user asks to create a new skill or workflow, use create_skill. Have a conversation to understand the workflow steps, then generate a complete skill.md document.`;
-
   prompt += `
+
+SKILL CREATION WORKFLOW (create_skill):
+When a user asks to create a new skill, you MUST follow these steps IN ORDER. Do NOT call create_skill immediately.
+1. Ask the user: "What is the goal of this skill?" — get a clear purpose.
+2. Ask the user: "What are the step-by-step workflow instructions?" — get numbered steps.
+3. Ask the user: "Are there any specific tools (file_read, api_call, etc.) this workflow should use?" — identify tool dependencies.
+4. Summarize what you collected and ask the user to confirm.
+5. ONLY AFTER confirmation, call create_skill with a complete markdown document including: title, description, and detailed numbered workflow steps.
+NEVER call create_skill with placeholder text. The content must be a real, actionable workflow document.
+
+SKILL EDITING:
+To view or edit an existing skill, use file_read to read skills/{name}/skill.md, then use file_write to update it.
+After creating or editing a skill, suggest the user test it and offer to refine the workflow based on results.
 
 When a user asks you to search the web, access a website, or retrieve online content, always use the web_fetch tool.
 When a user asks you to call an API or make HTTP requests with specific methods, headers, or request bodies, use the api_call tool.
