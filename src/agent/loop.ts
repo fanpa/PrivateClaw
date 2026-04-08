@@ -19,7 +19,7 @@ export interface RunAgentTurnOptions {
   onChunk?: (chunk: string) => void;
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
   onToolResult?: (toolName: string, result: unknown) => void;
-  onToolApproval?: (toolName: string, args: Record<string, unknown>) => Promise<ApprovalDecision>;
+  onToolApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
   onReflecting?: (loop: number) => void;
   onReflectionDone?: (changed: boolean) => void;
 }
