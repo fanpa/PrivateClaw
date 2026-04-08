@@ -28,7 +28,7 @@ export function createApprovalHandler(
   rl: readline.Interface,
   approvalManager: ToolApprovalManager,
 ) {
-  return (toolName: string, args: Record<string, unknown>): Promise<ApprovalDecision> => {
+  return (toolName: string, args: unknown): Promise<ApprovalDecision> => {
     if (!approvalManager.needsApproval(toolName)) {
       approvalManager.consume(toolName);
       return Promise.resolve('allow_once');
