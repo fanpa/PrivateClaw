@@ -160,10 +160,17 @@ export async function startChat(
         continue;
       }
 
+      if (trimmed === '/clear') {
+        messages.length = 0;
+        renderSystemMessage('Conversation history cleared.');
+        continue;
+      }
+
       if (trimmed === '/help') {
         renderSystemMessage('Available commands:');
         renderSystemMessage('  /domains  — Show allowed domains');
         renderSystemMessage('  /reload   — Reload config file');
+        renderSystemMessage('  /clear    — Clear conversation history');
         renderSystemMessage('  /help     — Show this help');
         renderSystemMessage('  /quit     — Exit');
         continue;
