@@ -18,15 +18,15 @@ describe('ToolApprovalManager', () => {
   });
 
   it('allows a tool once', () => {
-    manager.allowOnce('bash_exec');
-    expect(manager.getStatus('bash_exec')).toBe('once');
+    manager.allowOnce('shell_exec');
+    expect(manager.getStatus('shell_exec')).toBe('once');
   });
 
   it('resets "once" status after consume', () => {
-    manager.allowOnce('bash_exec');
-    expect(manager.getStatus('bash_exec')).toBe('once');
-    manager.consume('bash_exec');
-    expect(manager.getStatus('bash_exec')).toBe('pending');
+    manager.allowOnce('shell_exec');
+    expect(manager.getStatus('shell_exec')).toBe('once');
+    manager.consume('shell_exec');
+    expect(manager.getStatus('shell_exec')).toBe('pending');
   });
 
   it('does not reset "always" status after consume', () => {
