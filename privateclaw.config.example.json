@@ -16,7 +16,8 @@
     }
   },
   "session": {
-    "dbPath": "./privateclaw-sessions.db"
+    "dbPath": "./privateclaw-sessions.db",
+    "maxHistoryMessages": 20
   },
   "skills": [
     {
