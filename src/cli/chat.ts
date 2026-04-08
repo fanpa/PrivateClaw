@@ -24,7 +24,7 @@ import {
   renderReflectionDone,
 } from './renderer.js';
 
-function createApprovalHandler(
+export function createApprovalHandler(
   rl: readline.Interface,
   approvalManager: ToolApprovalManager,
 ) {
@@ -179,11 +179,6 @@ export async function startChat(
         });
 
         renderNewLine();
-
-        if (result.aborted) {
-          renderError('Agent stopped by user.');
-          continue;
-        }
 
         messages.push(...result.responseMessages);
         repo.updateMessages(session!.id, messages);

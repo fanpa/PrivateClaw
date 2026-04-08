@@ -78,6 +78,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
       defaultHeaders: options.defaultHeaders,
       skills: options.skills,
       skillsDir: options.skillsDir,
+      onApproval: options.onToolApproval,
     }),
     stopWhen: stepCountIs(maxSteps),
   });
@@ -91,16 +92,6 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
         break;
       case 'tool-call': {
         const callPart = part as unknown as { toolName: string; input: Record<string, unknown> };
-        if (options.onToolApproval) {
-          const decision = await options.onToolApproval(callPart.toolName, callPart.input);
-          if (decision === 'deny') {
-            return {
-              text: fullText,
-              responseMessages: [],
-              aborted: true,
-            };
-          }
-        }
         options.onToolCall?.(callPart.toolName, callPart.input);
         break;
       }

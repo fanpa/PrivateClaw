@@ -4,6 +4,7 @@ import { bashExecTool } from './bash-exec.js';
 import { createWebFetchTool } from './web-fetch.js';
 import { createApiCallTool } from './api-call.js';
 import { createUseSkillTool } from './use-skill.js';
+import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
 
 export interface BuiltinToolsOptions {
@@ -11,6 +12,28 @@ export interface BuiltinToolsOptions {
   defaultHeaders?: Record<string, Record<string, string>>;
   skills?: SkillConfig[];
   skillsDir?: string;
+  onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function wrapWithApproval(
+  toolName: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tool: any,
+  onApproval: NonNullable<BuiltinToolsOptions['onApproval']>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any {
+  const originalExecute = tool.execute as (args: unknown, options: unknown) => Promise<unknown>;
+  return {
+    ...tool,
+    execute: async (args: unknown, executeOptions: unknown) => {
+      const decision = await onApproval(toolName, args);
+      if (decision === 'deny') {
+        return { error: 'Tool execution denied by user.' };
+      }
+      return originalExecute(args, executeOptions);
+    },
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,6 +53,13 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
   if (options.skills && options.skills.length > 0) {
     const useSkill = createUseSkillTool(options.skills, options.skillsDir ?? './skills');
     tools[useSkill.name] = useSkill.tool;
+  }
+
+  if (options.onApproval) {
+    const onApproval = options.onApproval;
+    for (const name of Object.keys(tools)) {
+      tools[name] = wrapWithApproval(name, tools[name], onApproval);
+    }
   }
 
   return tools;
