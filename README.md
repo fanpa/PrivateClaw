@@ -53,6 +53,20 @@
 
 LLM은 `use_skill` 도구로 스킬을 로드한 뒤 워크플로우에 따라 `api_call`의 `formData` 파라미터를 구성합니다. 파일 업로드가 필요한 상황에서 `file-upload` 스킬을 사용하면 LLM이 올바른 multipart 요청 구조를 자동으로 만듭니다.
 
+### 대화형 스킬 생성 (create_skill)
+
+`create_skill` 도구를 사용하면 LLM과 대화하면서 새로운 스킬을 만들 수 있습니다. 스킬의 워크플로우를 직접 작성하는 대신, 원하는 작업을 설명하면 LLM이 적절한 `skill.md` 파일을 생성하고 config에 자동으로 등록합니다.
+
+```
+사용자: 로그 분석하는 스킬 만들어줘
+LLM: 어떤 종류의 로그를 분석하나요? 어떤 단계로 진행하면 좋을까요?
+사용자: 서버 에러 로그. 패턴 분석 → 원인 추론 → 요약
+LLM: → create_skill 호출
+     → skills/error-log-analysis/skill.md 생성 + config 등록 완료
+```
+
+생성된 스킬은 `/reload` 후 즉시 사용할 수 있습니다.
+
 ### 도메인 화이트리스트 보안
 
 Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더라도 연결을 차단합니다. 서브도메인 자동 매칭과 와일드카드(`*.example.com`)를 지원합니다.
@@ -70,7 +84,7 @@ Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더
 
 ### Tool 시스템
 
-6개의 빌트인 도구를 제공합니다:
+7개의 빌트인 도구를 제공합니다:
 
 | 도구 | 설명 |
 |------|------|
@@ -80,6 +94,7 @@ Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더
 | `web_fetch` | URL의 내용을 가져오기 (도메인 화이트리스트 적용) |
 | `api_call` | HTTP API 호출 — GET, POST, PATCH, PUT, DELETE 지원 (도메인 화이트리스트 적용) |
 | `use_skill` | 등록된 스킬 문서를 로드하여 워크플로우 지시를 따름 |
+| `create_skill` | 대화를 통해 새로운 스킬을 생성하고 config에 자동 등록 |
 
 ### Tool 실행 승인 시스템
 
