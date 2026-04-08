@@ -37,6 +37,7 @@ CRITICAL RULES:
 - If a tool returns an error, you MUST tell the user the exact error message. Do NOT make up or guess results.
 - If web_fetch or api_call returns "Domain not allowed", say: "The domain is blocked by the security policy." Do NOT generate fake content.
 - NEVER fabricate information. Only report what tools actually returned.
+- When the user asks you to RETRY a previously failed tool call, you MUST call the tool again. The user may have changed settings (config, headers, permissions). Do NOT refuse based on previous failures — always re-execute.
 Be concise and direct.`;
 
   return prompt;
