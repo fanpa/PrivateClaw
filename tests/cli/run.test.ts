@@ -48,7 +48,7 @@ describe('executeRun', () => {
     await executeRun({ prompt: 'do something' });
 
     const callArgs = mockRunAgentTurn.mock.calls[0][0];
-    const decision = await callArgs.onToolApproval('bash_exec', { command: 'rm -rf /' });
+    const decision = await callArgs.onToolApproval('shell_exec', { command: 'rm -rf /' });
     expect(decision).toBe('allow_once');
   });
 

@@ -17,7 +17,7 @@ export function buildSystemPrompt(skills: SkillConfig[] = []): string {
 
 - file_read: Read file contents from a given path
 - file_write: Write content to a file at a given path
-- bash_exec: Execute a bash command and return the output
+- shell_exec: Execute a shell command and return the output
 - web_fetch: Fetch a URL and return the response body
 - api_call: Make an HTTP API call (GET, POST, PATCH, PUT, DELETE) with custom headers and body
 - create_skill: Create a new reusable skill by writing a skill.md file and registering it in the config`;
