@@ -199,12 +199,51 @@ Agent가 코드를 실행할 때 격리된 샌드박스(Docker 컨테이너) 환
 
 Skill 시스템을 확장하여 커뮤니티 플러그인 생태계 지원.
 
+### Standalone 바이너리 배포 (예정)
+
+Node.js 설치 없이 실행 가능한 단독 바이너리 배포. Bun의 크로스 컴파일(`--target`)을 활용하여 Windows/Mac/Linux 바이너리를 한번에 생성.
+
 ## 설치 및 실행
 
 ### 요구사항
 
 - Node.js 22 이상
 - pnpm (`npm install -g pnpm`)
+
+### Node.js 설치 (nvm 사용)
+
+각 OS에 맞는 방법으로 [nvm](https://github.com/nvm-sh/nvm) (Node Version Manager)을 설치한 후 Node.js를 설치합니다.
+
+**macOS / Linux:**
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+source ~/.bashrc   # 또는 source ~/.zshrc
+nvm install 22
+nvm use 22
+```
+
+**Windows (PowerShell 관리자 모드):**
+
+Windows에서는 [nvm-windows](https://github.com/coreybutler/nvm-windows)를 사용합니다.
+
+```powershell
+# winget으로 설치 (Windows 10/11)
+winget install CoreyButler.NVMforWindows
+
+# 또는 https://github.com/coreybutler/nvm-windows/releases 에서 설치 파일 다운로드
+```
+
+설치 후 새 터미널을 열고:
+
+```powershell
+nvm install 22
+nvm use 22
+node -v   # v22.x.x 확인
+npm install -g pnpm
+```
+
+> **참고:** nvm 없이 [Node.js 공식 사이트](https://nodejs.org/)에서 직접 설치해도 됩니다.
 
 ### 설치
 
