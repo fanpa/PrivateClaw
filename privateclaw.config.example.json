@@ -9,6 +9,7 @@
   },
   "security": {
     "allowedDomains": ["localhost", "internal.corp.com"],
+    "allowedCommands": ["ls", "cat", "grep", "find", "echo", "head", "tail", "sed", "wc", "sort"],
     "defaultHeaders": {
       "internal.corp.com": {
         "Authorization": "Bearer your-api-token"
