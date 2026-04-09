@@ -63,7 +63,7 @@ describe('ConfigSchema', () => {
     expect(result.security.allowedDomains).toEqual([]);
   });
 
-  it('defaults session.dbPath', () => {
+  it('defaults session.sessionDir', () => {
     const config = {
       provider: {
         type: 'ollama',
@@ -72,7 +72,7 @@ describe('ConfigSchema', () => {
       },
     };
     const result = ConfigSchema.parse(config);
-    expect(result.session.dbPath).toBe('./privateclaw-sessions.db');
+    expect(result.session.sessionDir).toBe('./.privateclaw/sessions');
   });
 
   it('defaults temperature to 0.7', () => {

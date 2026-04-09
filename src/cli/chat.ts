@@ -80,17 +80,19 @@ export interface ChatOptions {
   allowedDomains?: string[];
   skills?: SkillConfig[];
   skillsDir?: string;
+  sessionDir?: string;
 }
 
 export async function startChat(
   sessionId?: string,
   options: ChatOptions = {},
 ): Promise<void> {
-  const repo = new SessionRepository();
   const approvalManager = new ToolApprovalManager();
 
   // Mutable options that can be reloaded
   let currentOptions = { ...options };
+
+  const repo = new SessionRepository(currentOptions.sessionDir ?? './.privateclaw/sessions');
 
   let session = sessionId
     ? repo.getById(sessionId)
@@ -152,6 +154,7 @@ export async function startChat(
             allowedDomains: config.security.allowedDomains,
             skills: config.skills,
             skillsDir: config.skillsDir,
+            sessionDir: config.session.sessionDir,
           };
           renderSystemMessage('Config reloaded successfully.');
           renderSystemMessage(`Provider: ${config.provider.type} (${config.provider.model})`);
