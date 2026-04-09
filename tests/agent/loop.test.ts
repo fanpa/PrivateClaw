@@ -96,10 +96,26 @@ describe('runAgentTurn', () => {
     expect(chunks[0]).toBe('Hello, world!');
   });
 
+  it('passes system prompt to generateText during reflection', async () => {
+    const { generateText } = await import('ai');
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+
+    await runAgentTurn({
+      messages,
+      model: {} as any,
+      systemPrompt: 'You are PrivateClaw.',
+      reflectionLoops: 1,
+    });
+
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({ system: 'You are PrivateClaw.' }),
+    );
+  });
+
   it('emits updated text via onChunk after reflection changes the answer', async () => {
     const { generateText } = await import('ai');
     (generateText as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      text: 'Corrected answer.',
+      text: '[CORRECTED]\nCorrected answer.',
     });
 
     const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
@@ -115,6 +131,51 @@ describe('runAgentTurn', () => {
     expect(chunks).toHaveLength(1);
     expect(chunks[0]).toBe('Corrected answer.');
     expect(result.text).toBe('Corrected answer.');
+  });
+
+  it('strips [CORRECTED] prefix so critique never leaks to user', async () => {
+    const { generateText } = await import('ai');
+    (generateText as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      text: '[CORRECTED]\nActual answer only.',
+    });
+
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+    const chunks: string[] = [];
+
+    const result = await runAgentTurn({
+      messages,
+      model: {} as any,
+      reflectionLoops: 1,
+      onChunk: (chunk) => chunks.push(chunk),
+    });
+
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toBe('Actual answer only.');
+    expect(chunks[0]).not.toContain('[CORRECTED]');
+    expect(result.text).toBe('Actual answer only.');
+  });
+
+  it('falls back to original response when reflection ignores format (safety net against leakage)', async () => {
+    const { generateText } = await import('ai');
+    // LLM returned unformatted critique — no [CORRECTED] prefix, no [LGTM]
+    (generateText as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      text: 'Your response was wrong because X. You should say Y instead.',
+    });
+
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+    const chunks: string[] = [];
+
+    const result = await runAgentTurn({
+      messages,
+      model: {} as any,
+      reflectionLoops: 1,
+      onChunk: (chunk) => chunks.push(chunk),
+    });
+
+    // Must NOT emit the critique text — fall back to original streamed response
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toBe('Hello, world!');
+    expect(result.text).toBe('Hello, world!');
   });
 
   it('does not abort in stream consumer when tool-call event is received with onToolApproval', async () => {

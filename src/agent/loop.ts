@@ -41,6 +41,7 @@ async function reflectOnResponse(
   effectiveModel: LanguageModel,
   messages: ModelMessage[],
   response: string,
+  systemPrompt: string,
   temperature?: number,
 ): Promise<{ text: string; changed: boolean }> {
   const reflectionMessages: ModelMessage[] = [
@@ -51,6 +52,7 @@ async function reflectOnResponse(
 
   const result = await generateText({
     model: effectiveModel,
+    system: systemPrompt,
     messages: reflectionMessages,
     temperature,
   });
@@ -61,7 +63,17 @@ async function reflectOnResponse(
     return { text: response, changed: false };
   }
 
-  return { text: reflectionText, changed: true };
+  const CORRECTED_PREFIX = '[CORRECTED]';
+  if (reflectionText.startsWith(CORRECTED_PREFIX)) {
+    const corrected = reflectionText.slice(CORRECTED_PREFIX.length).trim();
+    if (corrected.length > 0) {
+      return { text: corrected, changed: true };
+    }
+  }
+
+  // Safety net: LLM ignored the format — fall back to original to prevent
+  // critique/instruction text from leaking to the user.
+  return { text: response, changed: false };
 }
 
 export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentTurnResult> {
@@ -155,6 +167,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
         effectiveModel,
         applySliding(messages, maxHistory),
         finalText,
+        effectivePrompt,
         options.temperature,
       );
       options.onReflectionDone?.(reflection.changed);

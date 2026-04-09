@@ -68,4 +68,5 @@ export const REFLECTION_PROMPT = `Review your previous response for accuracy and
 - Did you miss anything the user asked for?
 
 If your response was accurate and complete, reply with exactly: [LGTM]
-If corrections are needed, provide the corrected response.`;
+If corrections are needed, reply with exactly: [CORRECTED]
+followed immediately by the corrected response text. Output ONLY the corrected text the user should see — no explanation of what was wrong, no commentary, no preamble.`;
