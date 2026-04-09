@@ -15,7 +15,7 @@ const SecuritySchema = z.object({
 });
 
 const SessionSchema = z.object({
-  dbPath: z.string().default('./privateclaw-sessions.db'),
+  sessionDir: z.string().default('./.privateclaw/sessions'),
   maxHistoryMessages: z.number().int().min(0).default(20),
 });
 

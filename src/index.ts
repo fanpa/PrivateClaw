@@ -16,6 +16,5 @@ export { createUseSkillTool } from './tools/use-skill.js';
 export { buildSystemPrompt } from './agent/types.js';
 export { runAgentTurn } from './agent/loop.js';
 export type { RunAgentTurnOptions, AgentTurnResult } from './agent/loop.js';
-export { createDatabase, closeDatabase } from './session/db.js';
 export { SessionRepository } from './session/repository.js';
 export type { Session } from './session/types.js';
