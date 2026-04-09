@@ -41,6 +41,7 @@ async function reflectOnResponse(
   effectiveModel: LanguageModel,
   messages: ModelMessage[],
   response: string,
+  systemPrompt: string,
   temperature?: number,
 ): Promise<{ text: string; changed: boolean }> {
   const reflectionMessages: ModelMessage[] = [
@@ -51,6 +52,7 @@ async function reflectOnResponse(
 
   const result = await generateText({
     model: effectiveModel,
+    system: systemPrompt,
     messages: reflectionMessages,
     temperature,
   });
@@ -155,6 +157,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
         effectiveModel,
         applySliding(messages, maxHistory),
         finalText,
+        effectivePrompt,
         options.temperature,
       );
       options.onReflectionDone?.(reflection.changed);

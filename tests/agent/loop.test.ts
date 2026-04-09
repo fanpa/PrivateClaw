@@ -96,6 +96,22 @@ describe('runAgentTurn', () => {
     expect(chunks[0]).toBe('Hello, world!');
   });
 
+  it('passes system prompt to generateText during reflection', async () => {
+    const { generateText } = await import('ai');
+    const messages: ModelMessage[] = [{ role: 'user', content: 'Hi' }];
+
+    await runAgentTurn({
+      messages,
+      model: {} as any,
+      systemPrompt: 'You are PrivateClaw.',
+      reflectionLoops: 1,
+    });
+
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({ system: 'You are PrivateClaw.' }),
+    );
+  });
+
   it('emits updated text via onChunk after reflection changes the answer', async () => {
     const { generateText } = await import('ai');
     (generateText as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
