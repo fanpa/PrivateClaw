@@ -6,4 +6,6 @@ dist/
 *.db-shm
 .env
 privateclaw.config.json
+.privateclaw/
 coverage/
+.claude/worktrees/

@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
 import type { Config } from '../config/schema.js';
 import { initProvider } from '../provider/registry.js';
-import { createDatabase, closeDatabase } from '../session/db.js';
 import { createRestrictedFetch } from '../security/restricted-fetch.js';
 import { isDomainAllowed } from '../security/domain-guard.js';
 import { SessionRepository } from '../session/repository.js';
@@ -44,7 +43,6 @@ export function createApp(): Command {
         if (opts.verbose) setVerbose(true);
         const config = loadConfig(opts.config);
         initFromConfig(config);
-        createDatabase(config.session.dbPath);
         await startChat(opts.session, {
           configPath: opts.config,
           temperature: config.provider.temperature,
@@ -54,12 +52,11 @@ export function createApp(): Command {
           allowedDomains: config.security.allowedDomains,
           skills: config.skills,
           skillsDir: config.skillsDir,
+          sessionDir: config.session.sessionDir,
         });
       } catch (err) {
         renderError(err instanceof Error ? err.message : String(err));
         process.exit(1);
-      } finally {
-        closeDatabase();
       }
     });
 
@@ -70,8 +67,7 @@ export function createApp(): Command {
     .action((opts: { config: string }) => {
       try {
         const config = loadConfig(opts.config);
-        createDatabase(config.session.dbPath);
-        const repo = new SessionRepository();
+        const repo = new SessionRepository(config.session.sessionDir);
         const sessions = repo.list();
 
         if (sessions.length === 0) {
@@ -85,8 +81,6 @@ export function createApp(): Command {
       } catch (err) {
         renderError(err instanceof Error ? err.message : String(err));
         process.exit(1);
-      } finally {
-        closeDatabase();
       }
     });
 
