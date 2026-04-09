@@ -1,61 +1,91 @@
 import { randomUUID } from 'node:crypto';
-import { getDatabase } from './db.js';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Session } from './types.js';
 import type { ModelMessage } from 'ai';
 
-interface SessionRow {
+interface IndexEntry {
   id: string;
   title: string;
-  messages: string;
-  created_at: string;
-  updated_at: string;
-}
-
-function rowToSession(row: SessionRow): Session {
-  return {
-    id: row.id,
-    title: row.title,
-    messages: JSON.parse(row.messages) as ModelMessage[],
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+  updatedAt: string;
 }
 
 export class SessionRepository {
+  private readonly dir: string;
+  private readonly indexPath: string;
+
+  constructor(sessionDir: string) {
+    this.dir = sessionDir;
+    this.indexPath = join(sessionDir, 'index.json');
+    mkdirSync(sessionDir, { recursive: true });
+  }
+
+  private readIndex(): IndexEntry[] {
+    if (!existsSync(this.indexPath)) return [];
+    return JSON.parse(readFileSync(this.indexPath, 'utf-8')) as IndexEntry[];
+  }
+
+  private writeIndex(entries: IndexEntry[]): void {
+    writeFileSync(this.indexPath, JSON.stringify(entries, null, 2) + '\n', 'utf-8');
+  }
+
+  private sessionPath(id: string): string {
+    return join(this.dir, `${id}.json`);
+  }
+
   create(title: string): Session {
-    const db = getDatabase();
     const id = randomUUID();
-    db.prepare(
-      'INSERT INTO sessions (id, title) VALUES (?, ?)'
-    ).run(id, title);
-    return this.getById(id)!;
+    const now = new Date().toISOString();
+    const session: Session = {
+      id,
+      title,
+      messages: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    writeFileSync(this.sessionPath(id), JSON.stringify(session, null, 2) + '\n', 'utf-8');
+
+    const index = this.readIndex();
+    index.push({ id, title, updatedAt: now });
+    this.writeIndex(index);
+
+    return session;
   }
 
   getById(id: string): Session | null {
-    const db = getDatabase();
-    const row = db.prepare(
-      'SELECT * FROM sessions WHERE id = ?'
-    ).get(id) as SessionRow | undefined;
-    return row ? rowToSession(row) : null;
+    const path = this.sessionPath(id);
+    if (!existsSync(path)) return null;
+    return JSON.parse(readFileSync(path, 'utf-8')) as Session;
   }
 
   list(): Session[] {
-    const db = getDatabase();
-    const rows = db.prepare(
-      'SELECT * FROM sessions ORDER BY updated_at DESC'
-    ).all() as SessionRow[];
-    return rows.map(rowToSession);
+    const index = this.readIndex();
+    index.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return index.map((entry) => this.getById(entry.id)).filter((s): s is Session => s !== null);
   }
 
   updateMessages(id: string, messages: ModelMessage[]): void {
-    const db = getDatabase();
-    db.prepare(
-      "UPDATE sessions SET messages = ?, updated_at = datetime('now') WHERE id = ?"
-    ).run(JSON.stringify(messages), id);
+    const session = this.getById(id);
+    if (!session) return;
+
+    session.messages = messages;
+    session.updatedAt = new Date().toISOString();
+    writeFileSync(this.sessionPath(id), JSON.stringify(session, null, 2) + '\n', 'utf-8');
+
+    const index = this.readIndex();
+    const entry = index.find((e) => e.id === id);
+    if (entry) {
+      entry.updatedAt = session.updatedAt;
+      this.writeIndex(index);
+    }
   }
 
   delete(id: string): void {
-    const db = getDatabase();
-    db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
+    const path = this.sessionPath(id);
+    if (existsSync(path)) rmSync(path);
+
+    const index = this.readIndex().filter((e) => e.id !== id);
+    this.writeIndex(index);
   }
 }

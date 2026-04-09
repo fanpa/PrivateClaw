@@ -1,32 +1,39 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createDatabase, closeDatabase } from '../../src/session/db.js';
 import { SessionRepository } from '../../src/session/repository.js';
-import { rmSync } from 'node:fs';
+import { rmSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
-const TEST_DB = join(import.meta.dirname, '__test_repo.db');
+const TEST_DIR = join(import.meta.dirname, '__test_sessions__');
 let repo: SessionRepository;
 
 beforeEach(() => {
-  createDatabase(TEST_DB);
-  repo = new SessionRepository();
+  repo = new SessionRepository(TEST_DIR);
 });
 
 afterEach(() => {
-  closeDatabase();
-  rmSync(TEST_DB, { force: true });
-  rmSync(TEST_DB + '-journal', { force: true });
-  rmSync(TEST_DB + '-wal', { force: true });
-  rmSync(TEST_DB + '-shm', { force: true });
+  rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
-describe('SessionRepository', () => {
-  it('creates a new session', () => {
+describe('SessionRepository (JSON)', () => {
+  it('creates a new session with JSON file', () => {
     const session = repo.create('Test Session');
     expect(session.id).toBeDefined();
     expect(session.title).toBe('Test Session');
     expect(session.messages).toEqual([]);
+
+    const filePath = join(TEST_DIR, `${session.id}.json`);
+    expect(existsSync(filePath)).toBe(true);
+  });
+
+  it('creates index.json on first session', () => {
+    repo.create('First');
+    const indexPath = join(TEST_DIR, 'index.json');
+    expect(existsSync(indexPath)).toBe(true);
+
+    const index = JSON.parse(readFileSync(indexPath, 'utf-8'));
+    expect(index).toHaveLength(1);
+    expect(index[0].title).toBe('First');
   });
 
   it('gets a session by id', () => {
@@ -43,7 +50,7 @@ describe('SessionRepository', () => {
 
   it('updates session messages', () => {
     const session = repo.create('Chat');
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       { role: 'user', content: 'Hello' },
       { role: 'assistant', content: 'Hi!' },
     ];
@@ -53,16 +60,30 @@ describe('SessionRepository', () => {
     expect(updated!.messages).toEqual(messages);
   });
 
-  it('lists all sessions', () => {
+  it('lists all sessions sorted by updatedAt desc', () => {
     repo.create('Session 1');
     repo.create('Session 2');
     const list = repo.list();
     expect(list).toHaveLength(2);
   });
 
-  it('deletes a session', () => {
+  it('deletes a session and removes JSON file', () => {
     const session = repo.create('To Delete');
+    const filePath = join(TEST_DIR, `${session.id}.json`);
+    expect(existsSync(filePath)).toBe(true);
+
     repo.delete(session.id);
     expect(repo.getById(session.id)).toBeNull();
+    expect(existsSync(filePath)).toBe(false);
+  });
+
+  it('updates index.json when session is deleted', () => {
+    const s1 = repo.create('Keep');
+    const s2 = repo.create('Delete');
+    repo.delete(s2.id);
+
+    const index = JSON.parse(readFileSync(join(TEST_DIR, 'index.json'), 'utf-8'));
+    expect(index).toHaveLength(1);
+    expect(index[0].id).toBe(s1.id);
   });
 });
