@@ -7,3 +7,4 @@ dist/
 .env
 privateclaw.config.json
 coverage/
+.claude/worktrees/
