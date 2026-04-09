@@ -10,7 +10,7 @@ import { renderError, renderSystemMessage, setVerbose } from './renderer.js';
 import { executeRun } from './run.js';
 
 export function initFromConfig(config: Config): void {
-  if (config.security.allowedDomains.length > 0) {
+  if (config.security.allowedDomains.length > 0 && config.provider.baseURL) {
     const providerHostname = new URL(config.provider.baseURL).hostname;
     if (!isDomainAllowed(providerHostname, config.security.allowedDomains)) {
       throw new Error(
