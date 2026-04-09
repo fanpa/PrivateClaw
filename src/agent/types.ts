@@ -13,7 +13,9 @@ export interface AgentState {
 }
 
 export function buildSystemPrompt(skills: SkillConfig[] = []): string {
-  let prompt = `You are PrivateClaw, a helpful AI assistant with access to the following tools:
+  const platform = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
+
+  let prompt = `You are PrivateClaw, a helpful AI assistant running on ${platform}. You have access to the following tools:
 
 - file_read: Read file contents from a given path
 - file_write: Write content to a file at a given path

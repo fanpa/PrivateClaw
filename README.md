@@ -84,8 +84,9 @@ Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더
 
 ### 쉘 명령어 화이트리스트
 
-`shell_exec`를 통한 도메인 제한 우회(예: `curl`, `wget`)를 방지하기 위해, 실행 가능한 명령어를 화이트리스트로 제한할 수 있습니다.
+`shell_exec`를 통한 도메인 제한 우회(예: `curl`, `wget`)를 방지하기 위해, 실행 가능한 명령어를 화이트리스트로 제한할 수 있습니다. 사용 중인 OS에 맞는 명령어를 설정하세요.
 
+**Linux / macOS:**
 ```json
 {
   "security": {
@@ -94,9 +95,28 @@ Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더
 }
 ```
 
+**Windows (cmd):**
+```json
+{
+  "security": {
+    "allowedCommands": ["dir", "type", "findstr", "echo", "sort", "where", "more"]
+  }
+}
+```
+
+**Windows (PowerShell):**
+```json
+{
+  "security": {
+    "allowedCommands": ["Get-ChildItem", "Get-Content", "Select-String", "Write-Output", "Sort-Object", "Where-Object"]
+  }
+}
+```
+
 - `allowedCommands`가 비어있으면(`[]`) 모든 명령어 허용 (기본값)
 - `&&`, `||`, `;`, `|`로 연결된 명령어도 각각 검증
 - 전체 경로 우회 차단 (`/usr/bin/curl` → `curl`로 인식)
+- LLM은 현재 OS를 자동 감지하여 해당 플랫폼의 명령어를 사용합니다
 
 ### Tool 시스템
 
