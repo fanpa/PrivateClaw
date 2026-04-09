@@ -9,7 +9,6 @@ import { ToolApprovalManager } from '../approval/manager.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
 import {
-  renderChunk,
   renderNewLine,
   renderError,
   renderErrorWithStack,
@@ -22,6 +21,7 @@ import {
   renderApprovalResult,
   renderReflecting,
   renderReflectionDone,
+  renderMarkdownResponse,
 } from './renderer.js';
 
 function buildApprovalKey(toolName: string, args: unknown): string {
@@ -78,6 +78,7 @@ export interface ChatOptions {
   maxHistoryMessages?: number;
   defaultHeaders?: Record<string, Record<string, string>>;
   allowedDomains?: string[];
+  allowedCommands?: string[];
   skills?: SkillConfig[];
   skillsDir?: string;
   sessionDir?: string;
@@ -152,6 +153,7 @@ export async function startChat(
             maxHistoryMessages: config.session.maxHistoryMessages,
             defaultHeaders: config.security.defaultHeaders,
             allowedDomains: config.security.allowedDomains,
+            allowedCommands: config.security.allowedCommands,
             skills: config.skills,
             skillsDir: config.skillsDir,
             sessionDir: config.session.sessionDir,
@@ -190,10 +192,11 @@ export async function startChat(
           reflectionLoops: currentOptions.reflectionLoops,
           maxHistoryMessages: currentOptions.maxHistoryMessages,
           defaultHeaders: currentOptions.defaultHeaders,
+          allowedCommands: currentOptions.allowedCommands,
           skills: currentOptions.skills,
           skillsDir: currentOptions.skillsDir,
           configPath: currentOptions.configPath,
-          onChunk: renderChunk,
+          onChunk: () => {},
           onReflecting: renderReflecting,
           onReflectionDone: renderReflectionDone,
           onToolCall: (name, args) => renderToolCall(name, args),
@@ -208,6 +211,9 @@ export async function startChat(
         });
 
         renderNewLine();
+        if (result.text) {
+          renderMarkdownResponse(result.text);
+        }
 
         messages.push(...result.responseMessages);
         repo.updateMessages(session!.id, messages);
