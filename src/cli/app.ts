@@ -50,6 +50,7 @@ export function createApp(): Command {
           maxHistoryMessages: config.session.maxHistoryMessages,
           defaultHeaders: config.security.defaultHeaders,
           allowedDomains: config.security.allowedDomains,
+          allowedCommands: config.security.allowedCommands,
           skills: config.skills,
           skillsDir: config.skillsDir,
           sessionDir: config.session.sessionDir,
@@ -134,6 +135,7 @@ export function createApp(): Command {
           temperature: config.provider.temperature,
           reflectionLoops: config.provider.reflectionLoops,
           defaultHeaders: config.security.defaultHeaders,
+          allowedCommands: config.security.allowedCommands,
           skills: config.skills,
           skillsDir: config.skillsDir,
         });

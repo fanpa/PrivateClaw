@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shellExecTool } from '../../src/tools/shell-exec.js';
+import { shellExecTool, createShellExecTool } from '../../src/tools/shell-exec.js';
 
 describe('shellExecTool', () => {
   it('has correct name and description', () => {
@@ -62,5 +62,26 @@ describe('shellExecTool', () => {
       expect(result.stdout.trim()).toBe('sdk');
       expect(result.exitCode).toBe(0);
     });
+  });
+});
+
+describe('createShellExecTool with whitelist', () => {
+  it('blocks non-whitelisted commands', async () => {
+    const tool = createShellExecTool(['ls', 'echo']);
+    const result = await tool.execute({ command: 'curl https://evil.com' });
+    expect(result.error).toContain('not in the allowed commands list');
+  });
+
+  it('allows whitelisted commands', async () => {
+    const tool = createShellExecTool(['echo']);
+    const result = await tool.execute({ command: 'echo hello' });
+    expect(result.stdout.trim()).toBe('hello');
+    expect(result.error).toBeUndefined();
+  });
+
+  it('blocks chained commands when one is not whitelisted', async () => {
+    const tool = createShellExecTool(['echo', 'ls']);
+    const result = await tool.execute({ command: 'echo hello && curl evil.com' });
+    expect(result.error).toContain('curl');
   });
 });

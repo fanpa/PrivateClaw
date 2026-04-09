@@ -9,6 +9,7 @@ export interface RunOptions {
   temperature?: number;
   reflectionLoops?: number;
   defaultHeaders?: Record<string, Record<string, string>>;
+  allowedCommands?: string[];
   skills?: SkillConfig[];
   skillsDir?: string;
 }
@@ -35,6 +36,7 @@ export async function executeRun(options: RunOptions): Promise<string> {
     temperature: options.temperature,
     reflectionLoops: options.reflectionLoops,
     defaultHeaders: options.defaultHeaders,
+    allowedCommands: options.allowedCommands,
     skills: options.skills,
     skillsDir: options.skillsDir,
     onToolApproval: async () => 'allow_once' as const,
