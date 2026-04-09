@@ -17,6 +17,7 @@ export interface RunAgentTurnOptions {
   defaultHeaders?: Record<string, Record<string, string>>;
   skills?: SkillConfig[];
   skillsDir?: string;
+  allowedCommands?: string[];
   configPath?: string;
   onChunk?: (chunk: string) => void;
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
@@ -94,6 +95,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   const toolSet = getBuiltinTools({
     fetchFn: getRestrictedFetch(),
     defaultHeaders: options.defaultHeaders,
+    allowedCommands: options.allowedCommands,
     skills: options.skills,
     skillsDir: options.skillsDir,
     configPath: options.configPath,

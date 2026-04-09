@@ -1,6 +1,6 @@
 import { fileReadTool } from './file-read.js';
 import { fileWriteTool } from './file-write.js';
-import { shellExecTool } from './shell-exec.js';
+import { createShellExecTool } from './shell-exec.js';
 import { createWebFetchTool } from './web-fetch.js';
 import { createApiCallTool } from './api-call.js';
 import { createUseSkillTool } from './use-skill.js';
@@ -15,6 +15,7 @@ export interface BuiltinToolsOptions {
   skillsDir?: string;
   configPath?: string;
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
+  allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
 }
 
@@ -48,11 +49,12 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
   const f = options.fetchFn ?? globalThis.fetch;
   const webFetch = createWebFetchTool(f);
   const apiCall = createApiCallTool(f, options.defaultHeaders ?? {});
+  const shellExec = createShellExecTool(options.allowedCommands ?? []);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools: Record<string, any> = {
     [fileReadTool.name]: fileReadTool.tool,
     [fileWriteTool.name]: fileWriteTool.tool,
-    [shellExecTool.name]: shellExecTool.tool,
+    [shellExec.name]: shellExec.tool,
     [webFetch.name]: webFetch.tool,
     [apiCall.name]: apiCall.tool,
   };

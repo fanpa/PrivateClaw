@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { renderMarkdown } from './markdown.js';
 
 let verbose = false;
 
@@ -175,6 +176,11 @@ export function renderApprovalPrompt(toolName: string, args: unknown): void {
   console.log(chalk.bold.yellow(`\n⚠ Tool "${toolName}" wants to execute:`));
   console.log(chalk.dim(JSON.stringify(args, null, 2)));
   console.log(chalk.yellow('  [y] Allow once  [a] Allow always  [n] Deny'));
+}
+
+export function renderMarkdownResponse(text: string): void {
+  const formatted = renderMarkdown(text);
+  process.stdout.write(formatted);
 }
 
 export function renderApprovalResult(toolName: string, decision: string): void {
