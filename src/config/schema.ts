@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 const ProviderSchema = z.object({
-  type: z.enum(['openai', 'anthropic', 'ollama']),
-  baseURL: z.string().url(),
+  type: z.enum(['openai', 'anthropic', 'ollama', 'google']),
+  baseURL: z.string().url().optional(),
   apiKey: z.string().optional(),
   model: z.string(),
   temperature: z.number().min(0).max(2).default(0.7),

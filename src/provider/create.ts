@@ -1,5 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { LanguageModel } from 'ai';
 import type { ProviderConfig } from '../config/schema.js';
 
@@ -37,8 +38,7 @@ export function createProvider(configOrOptions: ProviderConfig | CreateProviderO
     }
     case 'ollama': {
       // Ollama exposes an OpenAI-compatible API at /v1
-      // compatibility: 'compatible' forces Chat Completions API instead of Responses API
-      const baseURL = config.baseURL.replace(/\/api\/?$/, '/v1');
+      const baseURL = (config.baseURL ?? 'http://localhost:11434/api').replace(/\/api\/?$/, '/v1');
       const ollama = createOpenAI({
         baseURL,
         apiKey: 'ollama',
@@ -46,6 +46,14 @@ export function createProvider(configOrOptions: ProviderConfig | CreateProviderO
       });
       // Use .chat() for Chat Completions API (Ollama doesn't support Responses API)
       return { model: ollama.chat(config.model), provider: 'ollama' };
+    }
+    case 'google': {
+      const google = createGoogleGenerativeAI({
+        baseURL: config.baseURL,
+        apiKey: config.apiKey ?? '',
+        fetch: customFetch,
+      });
+      return { model: google(config.model), provider: 'google' };
     }
     default:
       throw new Error(`Unsupported provider: ${(config as ProviderConfig).type}`);
