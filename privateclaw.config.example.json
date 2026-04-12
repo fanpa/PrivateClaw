@@ -26,5 +26,21 @@
       "description": "서비스 장애나 에러 로그를 분석하여 근본 원인과 해결 방안을 제시합니다."
     }
   ],
-  "skillsDir": "./skills"
+  "skillsDir": "./skills",
+  "specialists": [
+    {
+      "role": "reasoning",
+      "type": "ollama",
+      "baseURL": "http://localhost:11434/api",
+      "model": "gemma3:27b",
+      "description": "Complex reasoning and multi-step logic"
+    },
+    {
+      "role": "coding",
+      "type": "ollama",
+      "baseURL": "http://localhost:11434/api",
+      "model": "qwen2.5-coder:32b",
+      "description": "Code generation, review, and debugging"
+    }
+  ]
 }
