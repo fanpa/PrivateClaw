@@ -87,7 +87,8 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     onChunk,
   } = options;
 
-  const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills);
+  const specialistRoles = options.specialists?.map((s) => s.role) ?? [];
+  const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills, specialistRoles);
   const effectiveModel = model ?? getModel();
   const loops = options.reflectionLoops ?? 0;
   const maxHistory = options.maxHistoryMessages ?? 0;
