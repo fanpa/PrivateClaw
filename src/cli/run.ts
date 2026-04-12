@@ -12,6 +12,7 @@ export interface RunOptions {
   allowedCommands?: string[];
   skills?: SkillConfig[];
   skillsDir?: string;
+  specialists?: import('../tools/delegate.js').SpecialistEntry[];
 }
 
 export async function executeRun(options: RunOptions): Promise<string> {
@@ -39,6 +40,7 @@ export async function executeRun(options: RunOptions): Promise<string> {
     allowedCommands: options.allowedCommands,
     skills: options.skills,
     skillsDir: options.skillsDir,
+    specialists: options.specialists,
     onToolApproval: async () => 'allow_once' as const,
   });
 

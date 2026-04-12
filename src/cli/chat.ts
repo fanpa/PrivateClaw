@@ -82,6 +82,7 @@ export interface ChatOptions {
   skills?: SkillConfig[];
   skillsDir?: string;
   sessionDir?: string;
+  specialists?: import('../tools/delegate.js').SpecialistEntry[];
 }
 
 export async function startChat(
@@ -196,6 +197,7 @@ export async function startChat(
           skills: currentOptions.skills,
           skillsDir: currentOptions.skillsDir,
           configPath: currentOptions.configPath,
+          specialists: currentOptions.specialists,
           onChunk: () => {},
           onReflecting: renderReflecting,
           onReflectionDone: renderReflectionDone,
