@@ -12,7 +12,7 @@ import { renderError, renderSystemMessage, setVerbose } from './renderer.js';
 import { executeRun } from './run.js';
 import { existsSync } from 'node:fs';
 import { executeAuth } from './auth.js';
-import { executeInit, autoRegisterSkills } from './init.js';
+import { executeInit, executeInteractiveInit, autoRegisterSkills } from './init.js';
 
 function buildSpecialists(config: Config, restrictedFetch: typeof globalThis.fetch): SpecialistEntry[] {
   return config.specialists.map((s) => {
@@ -57,21 +57,16 @@ export function createApp(): Command {
 
   program
     .command('init')
-    .description('Initialize config file and default skills')
+    .description('Interactive setup — configure LLM provider, discover models, create skills')
     .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
     .option('--skills-dir <path>', 'Path to skills directory', './skills')
-    .action((opts: { config: string; skillsDir: string }) => {
+    .action(async (opts: { config: string; skillsDir: string }) => {
       try {
-        const result = executeInit(opts.config, opts.skillsDir);
-        if (result.created.length === 0) {
-          renderSystemMessage('Already initialized. No files created.');
-        } else {
-          renderSystemMessage('Initialized:');
-          for (const f of result.created) {
-            renderSystemMessage(`  + ${f}`);
-          }
-          renderSystemMessage('\nEdit privateclaw.config.json to configure your LLM provider.');
+        if (existsSync(opts.config)) {
+          renderSystemMessage('Config file already exists. Delete it first to re-initialize.');
+          return;
         }
+        await executeInteractiveInit(opts.config, opts.skillsDir);
       } catch (err) {
         renderError(err instanceof Error ? err.message : String(err));
         process.exit(1);
@@ -90,13 +85,9 @@ export function createApp(): Command {
 
         // Auto-init if config doesn't exist
         if (!existsSync(opts.config)) {
-          renderSystemMessage('Config file not found. Running initialization...');
-          const initResult = executeInit(opts.config, './skills');
-          for (const f of initResult.created) {
-            renderSystemMessage(`  + ${f}`);
-          }
-          renderSystemMessage('Edit privateclaw.config.json to configure your LLM provider, then restart.\n');
-          return;
+          renderSystemMessage('Config file not found. Starting interactive setup...\n');
+          await executeInteractiveInit(opts.config, './skills');
+          if (!existsSync(opts.config)) return;
         }
 
         const config = loadConfig(opts.config);
