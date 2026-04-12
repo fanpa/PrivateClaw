@@ -293,6 +293,23 @@ chmod +x privateclaw-linux-x64
 .\privateclaw-windows-x64.exe chat
 ```
 
+처음 실행 시 config 파일이 없으면 자동으로 초기 설정이 생성됩니다:
+```bash
+./privateclaw-linux-x64 chat
+# → Config file not found. Running initialization...
+# → privateclaw.config.json + skills/ 자동 생성
+# → config 파일을 편집한 뒤 다시 실행하세요
+```
+
+또는 수동으로 초기화:
+```bash
+privateclaw init
+```
+
+### Skill 자동 감지
+
+`skills/` 디렉토리에 skill 폴더가 있지만 config에 등록되지 않은 경우, 실행 시 자동으로 감지하여 등록합니다. 직접 skill 폴더를 만들고 `skill.md`를 작성하면 config 수정 없이 바로 사용됩니다.
+
 ### 소스에서 설치
 
 ### 요구사항
@@ -383,6 +400,7 @@ pnpm run setup   # 빌드 + 글로벌 링크
 이후 어디서든 `privateclaw` 명령어로 실행할 수 있습니다:
 
 ```bash
+privateclaw init                    # 초기 설정 생성 (config + skills)
 privateclaw chat                    # 새 대화 시작
 privateclaw chat -s <session-id>    # 이전 세션 이어서 대화
 privateclaw sessions                # 저장된 세션 목록 보기

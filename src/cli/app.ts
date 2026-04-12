@@ -10,7 +10,9 @@ import { SessionRepository } from '../session/repository.js';
 import { startChat } from './chat.js';
 import { renderError, renderSystemMessage, setVerbose } from './renderer.js';
 import { executeRun } from './run.js';
+import { existsSync } from 'node:fs';
 import { executeAuth } from './auth.js';
+import { executeInit, autoRegisterSkills } from './init.js';
 
 function buildSpecialists(config: Config, restrictedFetch: typeof globalThis.fetch): SpecialistEntry[] {
   return config.specialists.map((s) => {
@@ -54,6 +56,29 @@ export function createApp(): Command {
     .version('0.1.0');
 
   program
+    .command('init')
+    .description('Initialize config file and default skills')
+    .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
+    .option('--skills-dir <path>', 'Path to skills directory', './skills')
+    .action((opts: { config: string; skillsDir: string }) => {
+      try {
+        const result = executeInit(opts.config, opts.skillsDir);
+        if (result.created.length === 0) {
+          renderSystemMessage('Already initialized. No files created.');
+        } else {
+          renderSystemMessage('Initialized:');
+          for (const f of result.created) {
+            renderSystemMessage(`  + ${f}`);
+          }
+          renderSystemMessage('\nEdit privateclaw.config.json to configure your LLM provider.');
+        }
+      } catch (err) {
+        renderError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  program
     .command('chat')
     .description('Start an interactive chat session')
     .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
@@ -62,7 +87,27 @@ export function createApp(): Command {
     .action(async (opts: { config: string; session?: string; verbose?: boolean }) => {
       try {
         if (opts.verbose) setVerbose(true);
+
+        // Auto-init if config doesn't exist
+        if (!existsSync(opts.config)) {
+          renderSystemMessage('Config file not found. Running initialization...');
+          const initResult = executeInit(opts.config, './skills');
+          for (const f of initResult.created) {
+            renderSystemMessage(`  + ${f}`);
+          }
+          renderSystemMessage('Edit privateclaw.config.json to configure your LLM provider, then restart.\n');
+          return;
+        }
+
         const config = loadConfig(opts.config);
+
+        // Auto-discover unregistered skills
+        const newSkills = autoRegisterSkills(opts.config, config.skillsDir);
+        if (newSkills.length > 0) {
+          renderSystemMessage(`Auto-registered skills: ${newSkills.join(', ')}`);
+          // Reload config to pick up newly registered skills
+          Object.assign(config, loadConfig(opts.config));
+        }
         const restrictedFetch = initFromConfig(config);
         const specialists = buildSpecialists(config, restrictedFetch);
         await startChat(opts.session, {
@@ -148,6 +193,11 @@ export function createApp(): Command {
       try {
         if (opts.verbose) setVerbose(true);
         const config = loadConfig(opts.config);
+
+        // Auto-discover unregistered skills
+        autoRegisterSkills(opts.config, config.skillsDir);
+        Object.assign(config, loadConfig(opts.config));
+
         const runRestrictedFetch = initFromConfig(config);
         const runSpecialists = buildSpecialists(config, runRestrictedFetch);
 
