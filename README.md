@@ -293,6 +293,23 @@ chmod +x privateclaw-linux-x64
 .\privateclaw-windows-x64.exe chat
 ```
 
+처음 실행 시 config 파일이 없으면 자동으로 초기 설정이 생성됩니다:
+```bash
+./privateclaw-linux-x64 chat
+# → Config file not found. Running initialization...
+# → privateclaw.config.json + skills/ 자동 생성
+# → config 파일을 편집한 뒤 다시 실행하세요
+```
+
+또는 수동으로 초기화:
+```bash
+privateclaw init
+```
+
+### Skill 자동 감지
+
+`skills/` 디렉토리에 skill 폴더가 있지만 config에 등록되지 않은 경우, 실행 시 자동으로 감지하여 등록합니다. 직접 skill 폴더를 만들고 `skill.md`를 작성하면 config 수정 없이 바로 사용됩니다.
+
 ### 소스에서 설치
 
 ### 요구사항
@@ -383,12 +400,14 @@ pnpm run setup   # 빌드 + 글로벌 링크
 이후 어디서든 `privateclaw` 명령어로 실행할 수 있습니다:
 
 ```bash
+privateclaw init                    # 초기 설정 생성 (config + skills)
 privateclaw chat                    # 새 대화 시작
 privateclaw chat -s <session-id>    # 이전 세션 이어서 대화
 privateclaw sessions                # 저장된 세션 목록 보기
 privateclaw domains                 # 허용된 도메인 목록 조회
 privateclaw run -p "프롬프트"        # 비대화형 단일 실행
 privateclaw run -s skill-name       # 스킬 기반 실행
+privateclaw auth -u <login-url>    # 브라우저 로그인 → 쿠키 캡처
 ```
 
 ### 채팅 내 명령어
@@ -433,6 +452,22 @@ OS의 cron과 조합하면 자동화된 스케줄링이 가능합니다:
 | `-s, --skill <name>` | 실행할 스킬 이름 |
 | `-c, --config <path>` | config 파일 경로 (기본: privateclaw.config.json) |
 | `-v, --verbose` | 상세 출력 모드 |
+
+### 브라우저 인증 (Cookie Capture)
+
+`privateclaw auth` 명령어로 브라우저를 열어 로그인한 뒤, 쿠키를 자동으로 캡처하여 config에 저장합니다.
+
+```bash
+# 브라우저 열어 로그인 → 쿠키 자동 저장
+privateclaw auth -u https://jira.company.com/login
+
+# 특정 URL로 리다이렉트될 때까지 대기
+privateclaw auth -u https://jira.company.com/login -w "*/dashboard*"
+```
+
+캡처된 쿠키는 `security.defaultHeaders`에 자동 저장되어, 이후 `api_call`에서 해당 도메인에 쿠키가 자동 첨부됩니다.
+
+> **요구사항:** Chrome 또는 Edge 브라우저가 설치되어 있어야 합니다.
 
 ### 개발 모드
 

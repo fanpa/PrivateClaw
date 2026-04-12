@@ -10,6 +10,9 @@ import { SessionRepository } from '../session/repository.js';
 import { startChat } from './chat.js';
 import { renderError, renderSystemMessage, setVerbose } from './renderer.js';
 import { executeRun } from './run.js';
+import { existsSync } from 'node:fs';
+import { executeAuth } from './auth.js';
+import { executeInit, executeInteractiveInit, autoRegisterSkills } from './init.js';
 
 function buildSpecialists(config: Config, restrictedFetch: typeof globalThis.fetch): SpecialistEntry[] {
   return config.specialists.map((s) => {
@@ -53,6 +56,24 @@ export function createApp(): Command {
     .version('0.1.0');
 
   program
+    .command('init')
+    .description('Interactive setup — configure LLM provider, discover models, create skills')
+    .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
+    .option('--skills-dir <path>', 'Path to skills directory', './skills')
+    .action(async (opts: { config: string; skillsDir: string }) => {
+      try {
+        if (existsSync(opts.config)) {
+          renderSystemMessage('Config file already exists. Delete it first to re-initialize.');
+          return;
+        }
+        await executeInteractiveInit(opts.config, opts.skillsDir);
+      } catch (err) {
+        renderError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  program
     .command('chat')
     .description('Start an interactive chat session')
     .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
@@ -61,7 +82,23 @@ export function createApp(): Command {
     .action(async (opts: { config: string; session?: string; verbose?: boolean }) => {
       try {
         if (opts.verbose) setVerbose(true);
+
+        // Auto-init if config doesn't exist
+        if (!existsSync(opts.config)) {
+          renderSystemMessage('Config file not found. Starting interactive setup...\n');
+          await executeInteractiveInit(opts.config, './skills');
+          if (!existsSync(opts.config)) return;
+        }
+
         const config = loadConfig(opts.config);
+
+        // Auto-discover unregistered skills
+        const newSkills = autoRegisterSkills(opts.config, config.skillsDir);
+        if (newSkills.length > 0) {
+          renderSystemMessage(`Auto-registered skills: ${newSkills.join(', ')}`);
+          // Reload config to pick up newly registered skills
+          Object.assign(config, loadConfig(opts.config));
+        }
         const restrictedFetch = initFromConfig(config);
         const specialists = buildSpecialists(config, restrictedFetch);
         await startChat(opts.session, {
@@ -147,6 +184,11 @@ export function createApp(): Command {
       try {
         if (opts.verbose) setVerbose(true);
         const config = loadConfig(opts.config);
+
+        // Auto-discover unregistered skills
+        autoRegisterSkills(opts.config, config.skillsDir);
+        Object.assign(config, loadConfig(opts.config));
+
         const runRestrictedFetch = initFromConfig(config);
         const runSpecialists = buildSpecialists(config, runRestrictedFetch);
 
@@ -167,6 +209,31 @@ export function createApp(): Command {
         if (output) {
           process.stdout.write(output + '\n');
         }
+      } catch (err) {
+        renderError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  program
+    .command('auth')
+    .description('Open browser to capture login cookies for a domain')
+    .requiredOption('-u, --url <url>', 'Login page URL')
+    .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
+    .option('-w, --wait-for <url>', 'URL pattern to wait for after login (e.g. "*/dashboard*")')
+    .option('-t, --timeout <ms>', 'Timeout in milliseconds', '300000')
+    .action(async (opts: { url: string; config: string; waitFor?: string; timeout: string }) => {
+      try {
+        const result = await executeAuth({
+          url: opts.url,
+          configPath: opts.config,
+          waitForUrl: opts.waitFor,
+          timeout: parseInt(opts.timeout, 10),
+        });
+
+        console.log(`\n✓ Captured ${result.cookieCount} cookies for ${result.domain}`);
+        console.log(`  Saved to ${opts.config} → security.defaultHeaders["${result.domain}"].Cookie`);
+        console.log(`  Use "privateclaw chat" to start using the authenticated session.`);
       } catch (err) {
         renderError(err instanceof Error ? err.message : String(err));
         process.exit(1);
