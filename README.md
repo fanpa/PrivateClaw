@@ -95,15 +95,6 @@ Setting에 정해진 domain을 제외하고는 LLM이 어떠한 요청을 하더
 }
 ```
 
-**Windows (cmd):**
-```json
-{
-  "security": {
-    "allowedCommands": ["dir", "type", "findstr", "echo", "sort", "where", "more"]
-  }
-}
-```
-
 **Windows (PowerShell):**
 ```json
 {

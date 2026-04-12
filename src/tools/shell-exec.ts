@@ -20,10 +20,11 @@ function executeShell(command: string, allowedCommands: string[], timeout?: numb
     };
   }
 
+  const shell = process.platform === 'win32' ? 'powershell.exe' : true;
   const result = spawnSync(command, {
     encoding: 'utf-8',
     timeout: timeout ?? 30000,
-    shell: true,
+    shell,
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   return {
