@@ -42,6 +42,22 @@ shell_exec: $ppt = New-Object -ComObject PowerPoint.Application; $pres = $ppt.Pr
 shell_exec: $word = New-Object -ComObject Word.Application; $word.Visible = $false; $doc = $word.Documents.Open('FILE_PATH', $false, $true); $text = $doc.Content.Text; if ($text.Length -gt 5000) { $text.Substring(0, 5000) + '... [truncated]' } else { $text }; $doc.Close($false); $word.Quit(); [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
 ```
 
+### 이미지 추출
+
+문서에 포함된 이미지를 임시 폴더에 저장할 수 있습니다. 추출된 이미지는 OCR 스킬과 연계하여 텍스트로 변환할 수 있습니다.
+
+**Excel 이미지 추출:**
+```
+shell_exec: $excel = New-Object -ComObject Excel.Application; $excel.Visible = $false; $excel.DisplayAlerts = $false; $wb = $excel.Workbooks.Open('FILE_PATH'); $sheet = $wb.Sheets.Item('SHEET_NAME'); $dir = "$env:TEMP\privateclaw_images"; New-Item -ItemType Directory -Force -Path $dir | Out-Null; $i = 1; $sheet.Shapes | ForEach-Object { $_.CopyPicture(); $img = New-Object -ComObject Word.Application; $img.Visible = $false; $_.Copy(); $path = "$dir\excel_img_$i.png"; $i++ }; Write-Output "Images saved to: $dir"; $wb.Close($false); $excel.Quit(); [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+```
+
+**PPT 이미지 추출:**
+```
+shell_exec: $ppt = New-Object -ComObject PowerPoint.Application; $pres = $ppt.Presentations.Open('FILE_PATH', $true, $false, $false); $dir = "$env:TEMP\privateclaw_images"; New-Item -ItemType Directory -Force -Path $dir | Out-Null; $i = 1; foreach ($slide in $pres.Slides) { foreach ($shape in $slide.Shapes) { if ($shape.Type -eq 13) { $path = "$dir\slide$($slide.SlideIndex)_img$i.png"; $shape.Export($path, 2); Write-Output "Exported: $path"; $i++ } } }; $pres.Close(); $ppt.Quit(); [System.Runtime.Interopservices.Marshal]::ReleaseComObject($ppt) | Out-Null
+```
+
+추출된 이미지 경로를 사용자에게 알려주세요. 이미지 내용을 분석해야 하는 경우 `ocr` 스킬을 사용하여 텍스트로 변환할 수 있습니다.
+
 ## 주의사항
 
 - FILE_PATH는 반드시 절대 경로를 사용하세요 (예: `C:\Users\user\Documents\report.xlsx`)
