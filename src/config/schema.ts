@@ -25,15 +25,26 @@ const SkillEntrySchema = z.object({
   description: z.string(),
 });
 
+const SpecialistSchema = z.object({
+  role: z.string(),
+  type: z.enum(['openai', 'anthropic', 'ollama', 'google']),
+  baseURL: z.string().url().optional(),
+  apiKey: z.string().optional(),
+  model: z.string(),
+  description: z.string(),
+});
+
 export const ConfigSchema = z.object({
   provider: ProviderSchema,
   security: SecuritySchema.default({}),
   session: SessionSchema.default({}),
   skills: z.array(SkillEntrySchema).default([]),
   skillsDir: z.string().default('./skills'),
+  specialists: z.array(SpecialistSchema).default([]),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
 export type ProviderConfig = z.infer<typeof ProviderSchema>;
 export type SecurityConfig = z.infer<typeof SecuritySchema>;
 export type SessionConfig = z.infer<typeof SessionSchema>;
+export type SpecialistConfig = z.infer<typeof SpecialistSchema>;

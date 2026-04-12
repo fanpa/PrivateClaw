@@ -2,14 +2,33 @@ import { Command } from 'commander';
 import { loadConfig } from '../config/loader.js';
 import type { Config } from '../config/schema.js';
 import { initProvider } from '../provider/registry.js';
+import { createProvider } from '../provider/create.js';
 import { createRestrictedFetch } from '../security/restricted-fetch.js';
 import { isDomainAllowed } from '../security/domain-guard.js';
+import type { SpecialistEntry } from '../tools/delegate.js';
 import { SessionRepository } from '../session/repository.js';
 import { startChat } from './chat.js';
 import { renderError, renderSystemMessage, setVerbose } from './renderer.js';
 import { executeRun } from './run.js';
 
-export function initFromConfig(config: Config): void {
+function buildSpecialists(config: Config, restrictedFetch: typeof globalThis.fetch): SpecialistEntry[] {
+  return config.specialists.map((s) => {
+    const { model } = createProvider({
+      config: {
+        type: s.type,
+        baseURL: s.baseURL,
+        apiKey: s.apiKey,
+        model: s.model,
+        temperature: 0.7,
+        reflectionLoops: 0,
+      },
+      fetch: restrictedFetch,
+    });
+    return { role: s.role, model, description: s.description };
+  });
+}
+
+export function initFromConfig(config: Config): typeof globalThis.fetch {
   if (config.security.allowedDomains.length > 0 && config.provider.baseURL) {
     const providerHostname = new URL(config.provider.baseURL).hostname;
     if (!isDomainAllowed(providerHostname, config.security.allowedDomains)) {
@@ -22,6 +41,7 @@ export function initFromConfig(config: Config): void {
 
   const restrictedFetch = createRestrictedFetch(config.security.allowedDomains);
   initProvider(config.provider, restrictedFetch);
+  return restrictedFetch;
 }
 
 export function createApp(): Command {
@@ -42,7 +62,8 @@ export function createApp(): Command {
       try {
         if (opts.verbose) setVerbose(true);
         const config = loadConfig(opts.config);
-        initFromConfig(config);
+        const restrictedFetch = initFromConfig(config);
+        const specialists = buildSpecialists(config, restrictedFetch);
         await startChat(opts.session, {
           configPath: opts.config,
           temperature: config.provider.temperature,
@@ -54,6 +75,7 @@ export function createApp(): Command {
           skills: config.skills,
           skillsDir: config.skillsDir,
           sessionDir: config.session.sessionDir,
+          specialists,
         });
       } catch (err) {
         renderError(err instanceof Error ? err.message : String(err));
@@ -125,7 +147,8 @@ export function createApp(): Command {
       try {
         if (opts.verbose) setVerbose(true);
         const config = loadConfig(opts.config);
-        initFromConfig(config);
+        const runRestrictedFetch = initFromConfig(config);
+        const runSpecialists = buildSpecialists(config, runRestrictedFetch);
 
         const prompt = opts.prompt ?? `Execute the "${opts.skill}" skill workflow.`;
 
@@ -138,6 +161,7 @@ export function createApp(): Command {
           allowedCommands: config.security.allowedCommands,
           skills: config.skills,
           skillsDir: config.skillsDir,
+          specialists: runSpecialists,
         });
 
         if (output) {

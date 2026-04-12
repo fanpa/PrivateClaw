@@ -19,6 +19,7 @@ export interface RunAgentTurnOptions {
   skillsDir?: string;
   allowedCommands?: string[];
   configPath?: string;
+  specialists?: import('../tools/delegate.js').SpecialistEntry[];
   onChunk?: (chunk: string) => void;
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
   onToolResult?: (toolName: string, result: unknown) => void;
@@ -86,7 +87,8 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     onChunk,
   } = options;
 
-  const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills);
+  const specialistRoles = options.specialists?.map((s) => s.role) ?? [];
+  const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills, specialistRoles);
   const effectiveModel = model ?? getModel();
   const loops = options.reflectionLoops ?? 0;
   const maxHistory = options.maxHistoryMessages ?? 0;
@@ -99,6 +101,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     skills: options.skills,
     skillsDir: options.skillsDir,
     configPath: options.configPath,
+    specialists: options.specialists,
     onApproval: options.onToolApproval,
   });
 

@@ -12,7 +12,7 @@ export interface AgentState {
   sessionId: string;
 }
 
-export function buildSystemPrompt(skills: SkillConfig[] = []): string {
+export function buildSystemPrompt(skills: SkillConfig[] = [], specialistRoles: string[] = []): string {
   const platform = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
 
   let prompt = `You are PrivateClaw, a helpful AI assistant running on ${platform}. You have access to the following tools:
@@ -23,6 +23,15 @@ export function buildSystemPrompt(skills: SkillConfig[] = []): string {
 - web_fetch: Fetch a URL and return the response body
 - api_call: Make an HTTP API call (GET, POST, PATCH, PUT, DELETE) with custom headers and body
 - create_skill: Create a new reusable skill by writing a skill.md file and registering it in the config`;
+
+  if (specialistRoles.length > 0) {
+    prompt += `\n- delegate: Delegate a task to a specialist model for higher quality results`;
+    prompt += `\n\nDELEGATION:
+When a task requires specialized expertise, use the delegate tool to route it to the appropriate specialist.
+Available specialists: ${specialistRoles.join(', ')}
+Use delegation when the task clearly matches a specialist's domain. Include the FULL task context when delegating — the specialist has no conversation history.
+After receiving the specialist's response, review it and present it to the user. You may add context or formatting.`;
+  }
 
   if (skills.length > 0) {
     prompt += `\n- use_skill: Load a skill document to follow its workflow instructions`;

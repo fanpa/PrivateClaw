@@ -229,6 +229,38 @@ Google Gemini 사용 예시:
 
 > **참고:** Google provider는 `baseURL`이 선택사항입니다 (기본값: Google AI API). OpenAI/Anthropic도 공식 API 사용 시 `baseURL`을 생략할 수 있습니다.
 
+### 멀티 모델 오케스트레이션
+
+메인 모델이 작업 특성에 따라 전문 모델(specialist)에게 위임할 수 있습니다. 추론, 코딩, 수학 등 특정 영역에 강한 모델을 활용하여 응답 품질을 높이고, 메인 모델의 토큰 부담을 줄입니다.
+
+```json
+{
+  "provider": {
+    "type": "ollama",
+    "model": "gpt-oss-120b"
+  },
+  "specialists": [
+    {
+      "role": "reasoning",
+      "type": "ollama",
+      "model": "gemma3:27b",
+      "description": "Complex reasoning and multi-step logic"
+    },
+    {
+      "role": "coding",
+      "type": "ollama",
+      "model": "qwen2.5-coder:32b",
+      "description": "Code generation, review, and debugging"
+    }
+  ]
+}
+```
+
+- 메인 모델이 `delegate` tool로 specialist에게 작업을 위임
+- Specialist는 텍스트만 반환 (도구 접근 없음, 비용 절감)
+- `specialists`가 비어있으면 메인 모델이 혼자 모든 작업 처리 (기존 동작)
+- Specialist는 대화 이력을 보지 않으므로, 메인 모델이 충분한 컨텍스트를 포함하여 위임
+
 ### 폐쇄망(Air-gapped) 지원
 
 외부 인터넷 연결 없이 완전히 격리된 네트워크 환경에서도 동작합니다. 모든 LLM 연결은 사용자가 지정한 내부 엔드포인트(`baseURL`)로 직접 통신하며, 외부 서비스(Vercel Gateway 등)를 경유하지 않습니다.
