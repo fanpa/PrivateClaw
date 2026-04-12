@@ -389,6 +389,7 @@ privateclaw sessions                # 저장된 세션 목록 보기
 privateclaw domains                 # 허용된 도메인 목록 조회
 privateclaw run -p "프롬프트"        # 비대화형 단일 실행
 privateclaw run -s skill-name       # 스킬 기반 실행
+privateclaw auth -u <login-url>    # 브라우저 로그인 → 쿠키 캡처
 ```
 
 ### 채팅 내 명령어
@@ -433,6 +434,22 @@ OS의 cron과 조합하면 자동화된 스케줄링이 가능합니다:
 | `-s, --skill <name>` | 실행할 스킬 이름 |
 | `-c, --config <path>` | config 파일 경로 (기본: privateclaw.config.json) |
 | `-v, --verbose` | 상세 출력 모드 |
+
+### 브라우저 인증 (Cookie Capture)
+
+`privateclaw auth` 명령어로 브라우저를 열어 로그인한 뒤, 쿠키를 자동으로 캡처하여 config에 저장합니다.
+
+```bash
+# 브라우저 열어 로그인 → 쿠키 자동 저장
+privateclaw auth -u https://jira.company.com/login
+
+# 특정 URL로 리다이렉트될 때까지 대기
+privateclaw auth -u https://jira.company.com/login -w "*/dashboard*"
+```
+
+캡처된 쿠키는 `security.defaultHeaders`에 자동 저장되어, 이후 `api_call`에서 해당 도메인에 쿠키가 자동 첨부됩니다.
+
+> **요구사항:** Chrome 또는 Edge 브라우저가 설치되어 있어야 합니다.
 
 ### 개발 모드
 

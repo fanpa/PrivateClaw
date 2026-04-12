@@ -10,6 +10,7 @@ import { SessionRepository } from '../session/repository.js';
 import { startChat } from './chat.js';
 import { renderError, renderSystemMessage, setVerbose } from './renderer.js';
 import { executeRun } from './run.js';
+import { executeAuth } from './auth.js';
 
 function buildSpecialists(config: Config, restrictedFetch: typeof globalThis.fetch): SpecialistEntry[] {
   return config.specialists.map((s) => {
@@ -167,6 +168,31 @@ export function createApp(): Command {
         if (output) {
           process.stdout.write(output + '\n');
         }
+      } catch (err) {
+        renderError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+    });
+
+  program
+    .command('auth')
+    .description('Open browser to capture login cookies for a domain')
+    .requiredOption('-u, --url <url>', 'Login page URL')
+    .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
+    .option('-w, --wait-for <url>', 'URL pattern to wait for after login (e.g. "*/dashboard*")')
+    .option('-t, --timeout <ms>', 'Timeout in milliseconds', '300000')
+    .action(async (opts: { url: string; config: string; waitFor?: string; timeout: string }) => {
+      try {
+        const result = await executeAuth({
+          url: opts.url,
+          configPath: opts.config,
+          waitForUrl: opts.waitFor,
+          timeout: parseInt(opts.timeout, 10),
+        });
+
+        console.log(`\n✓ Captured ${result.cookieCount} cookies for ${result.domain}`);
+        console.log(`  Saved to ${opts.config} → security.defaultHeaders["${result.domain}"].Cookie`);
+        console.log(`  Use "privateclaw chat" to start using the authenticated session.`);
       } catch (err) {
         renderError(err instanceof Error ? err.message : String(err));
         process.exit(1);
