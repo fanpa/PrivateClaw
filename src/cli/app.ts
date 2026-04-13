@@ -222,13 +222,26 @@ export function createApp(): Command {
     .option('-c, --config <path>', 'Path to config file', 'privateclaw.config.json')
     .option('-w, --wait-for <url>', 'URL pattern to wait for after login (e.g. "*/dashboard*")')
     .option('-t, --timeout <ms>', 'Timeout in milliseconds', '300000')
-    .action(async (opts: { url: string; config: string; waitFor?: string; timeout: string }) => {
+    .option('-H, --header <header...>', 'Extra headers to inject (format: "Key:Value")')
+    .action(async (opts: { url: string; config: string; waitFor?: string; timeout: string; header?: string[] }) => {
       try {
+        // Parse --header flags: ["User-Agent:Bot/1.0", "X-Custom:value"] → { "User-Agent": "Bot/1.0", ... }
+        const extraHeaders: Record<string, string> = {};
+        if (opts.header) {
+          for (const h of opts.header) {
+            const idx = h.indexOf(':');
+            if (idx > 0) {
+              extraHeaders[h.slice(0, idx).trim()] = h.slice(idx + 1).trim();
+            }
+          }
+        }
+
         const result = await executeAuth({
           url: opts.url,
           configPath: opts.config,
           waitForUrl: opts.waitFor,
           timeout: parseInt(opts.timeout, 10),
+          extraHeaders: Object.keys(extraHeaders).length > 0 ? extraHeaders : undefined,
         });
 
         console.log(`\n✓ Captured ${result.cookieCount} cookies for ${result.domain}`);
