@@ -1,3 +1,4 @@
+import puppeteer from 'puppeteer-core';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 export interface AuthOptions {
@@ -14,13 +15,18 @@ interface AuthResult {
   cookieHeader: string;
 }
 
-function detectBrowserChannel(): string {
-  // Try Chrome first, then Edge
-  // playwright-core accepts 'chrome', 'msedge', 'chromium'
-  // On Windows, Edge is always available
-  // On macOS, Chrome is most common
-  if (process.platform === 'win32') return 'msedge';
-  return 'chrome';
+const EDGE_PATH_WIN = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+
+async function launchBrowser(headless: boolean) {
+  if (process.platform === 'win32') {
+    try {
+      return await puppeteer.launch({ channel: 'chrome', headless });
+    } catch {
+      console.log('Chrome not found, falling back to Edge...');
+      return puppeteer.launch({ executablePath: EDGE_PATH_WIN, headless });
+    }
+  }
+  return puppeteer.launch({ channel: 'chrome', headless });
 }
 
 export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
@@ -28,30 +34,12 @@ export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
   const targetUrl = new URL(url);
   const domain = targetUrl.hostname;
 
-  const channel = detectBrowserChannel();
-
-  let playwrightModule: typeof import('playwright-core');
-  try {
-    playwrightModule = await import('playwright-core');
-  } catch {
-    throw new Error(
-      'playwright-core is required for browser auth but could not be loaded.\n' +
-        'Install it with: npm install playwright-core',
-    );
-  }
-  const { chromium } = playwrightModule;
-
-  console.log(`Opening ${channel} browser...`);
+  console.log('Opening browser...');
   console.log(`Please log in at: ${url}`);
-  console.log(`Browser will close automatically after login is detected.\n`);
+  console.log('Browser will close automatically after login is detected.\n');
 
-  const browser = await chromium.launch({
-    channel,
-    headless: false,
-  });
-
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  const browser = await launchBrowser(false);
+  const page = await browser.newPage();
 
   if (options.extraHeaders && Object.keys(options.extraHeaders).length > 0) {
     await page.setExtraHTTPHeaders(options.extraHeaders);
@@ -59,22 +47,38 @@ export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
 
   await page.goto(url);
 
-  // Wait for user to complete login
-  // Strategy: wait for cookies to appear on the domain, or timeout
-  // If waitForUrl is specified, wait until the URL changes to that pattern
   if (options.waitForUrl) {
-    await page.waitForURL(options.waitForUrl, { timeout });
+    const pattern = options.waitForUrl;
+    const deadline = Date.now() + timeout;
+    let matched = false;
+    while (!matched && Date.now() < deadline) {
+      const currentUrl = page.url();
+      try {
+        matched = new RegExp(pattern).test(currentUrl);
+      } catch {
+        matched = currentUrl.startsWith(pattern) || currentUrl.includes(pattern);
+      }
+      if (!matched) {
+        await page
+          .waitForNavigation({ timeout: Math.min(5000, deadline - Date.now()) })
+          .catch(() => {});
+      }
+    }
+    if (!matched) {
+      throw new Error(`Timed out waiting for URL matching: ${pattern}`);
+    }
   } else {
-    // Wait for any navigation away from the login page (user completed login)
-    // Or wait for the user to press Enter in the terminal
     console.log('Press Enter in this terminal after you have logged in...');
     await new Promise<void>((resolve) => {
       process.stdin.once('data', () => resolve());
     });
   }
 
-  // Capture cookies for the domain
-  const cookies = await context.cookies();
+  // Capture all cookies via CDP to get cross-domain cookies after redirects
+  const cdpSession = await page.createCDPSession();
+  const { cookies } = await cdpSession.send('Network.getAllCookies');
+  await cdpSession.detach();
+
   const domainCookies = cookies.filter(
     (c) => c.domain === domain || c.domain === `.${domain}` || domain.endsWith(c.domain.replace(/^\./, '')),
   );
@@ -85,10 +89,8 @@ export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
     throw new Error(`No cookies found for domain: ${domain}`);
   }
 
-  // Build Cookie header value
   const cookieHeader = domainCookies.map((c) => `${c.name}=${c.value}`).join('; ');
 
-  // Update config file
   const raw = readFileSync(configPath, 'utf-8');
   const config = JSON.parse(raw);
 
