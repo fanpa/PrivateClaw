@@ -241,13 +241,27 @@ export function createApp(): Command {
 
         const result = await executeAuth({
           url: opts.url,
-          configPath: opts.config,
           waitForUrl: opts.waitFor,
           timeout: parseInt(opts.timeout, 10),
           extraHeaders: Object.keys(extraHeaders).length > 0 ? extraHeaders : undefined,
         });
 
-        console.log(`\n✓ Captured ${result.cookieCount} cookies for ${result.domain}`);
+        // CLI auth command saves cookies as Cookie header to config
+        const cookieHeader = result.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+
+        const { readFileSync, writeFileSync } = await import('node:fs');
+        const raw = readFileSync(opts.config, 'utf-8');
+        const config = JSON.parse(raw);
+
+        if (!config.security) config.security = {};
+        if (!config.security.defaultHeaders) config.security.defaultHeaders = {};
+        if (!config.security.defaultHeaders[result.domain]) config.security.defaultHeaders[result.domain] = {};
+
+        config.security.defaultHeaders[result.domain]['Cookie'] = cookieHeader;
+
+        writeFileSync(opts.config, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+        console.log(`\n✓ Captured ${result.cookies.length} cookies for ${result.domain}`);
         console.log(`  Saved to ${opts.config} → security.defaultHeaders["${result.domain}"].Cookie`);
         console.log(`  Use "privateclaw chat" to start using the authenticated session.`);
       } catch (err) {
