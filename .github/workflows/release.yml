@@ -43,7 +43,7 @@ jobs:
         run: pnpm build
 
       - name: Compile standalone binary
-        run: bun run scripts/compile-binary.ts --target=${{ matrix.target }} --outfile=${{ matrix.artifact }} ./dist/bin/privateclaw.js
+        run: bun run scripts/build-binary.ts ${{ matrix.target }} ${{ matrix.artifact }}
 
       - name: Upload binary to release
         uses: softprops/action-gh-release@v2
