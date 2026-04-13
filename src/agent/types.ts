@@ -24,7 +24,8 @@ export function buildSystemPrompt(skills: SkillConfig[] = [], specialistRoles: s
 - api_call: Make an HTTP API call (GET, POST, PATCH, PUT, DELETE) with custom headers and body
 - create_skill: Create a new reusable skill by writing a skill.md file and registering it in the config
 - set_header: Set default HTTP headers for a domain (Authorization, User-Agent, Cookie, etc.)
-- reload_config: Reload configuration file to apply changes`;
+- reload_config: Reload configuration file to apply changes
+- browser_auth: Open browser for user to log in, capture cookies automatically`;
 
   if (specialistRoles.length > 0) {
     prompt += `\n- delegate: Delegate a task to a specialist model for higher quality results`;
@@ -59,6 +60,7 @@ After creating or editing a skill, suggest the user test it and offer to refine 
 When a user asks you to search the web, access a website, or retrieve online content, always use the web_fetch tool.
 When a user asks you to call an API or make HTTP requests with specific methods, headers, or request bodies, use the api_call tool.
 When a user needs to set authentication headers or custom headers for a domain, use set_header to save them to config, then call reload_config to apply.
+When a user needs to log in to a website to access its API, use browser_auth to open a browser. After login, cookies are saved automatically. Then call reload_config to apply.
 When a user asks about your capabilities, list all tools above.
 Always use the appropriate tool rather than guessing or making up information.
 CRITICAL RULES:

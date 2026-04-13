@@ -7,6 +7,7 @@ import { createUseSkillTool } from './use-skill.js';
 import { createCreateSkillTool } from './create-skill.js';
 import { createSetHeaderTool } from './set-header.js';
 import { createReloadConfigTool } from './reload-config.js';
+import { createBrowserAuthTool } from './browser-auth.js';
 import { createDelegateTool } from './delegate.js';
 import type { SpecialistEntry } from './delegate.js';
 import type { ApprovalDecision } from '../approval/types.js';
@@ -78,6 +79,8 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     tools[createSkill.name] = createSkill.tool;
     const setHeader = createSetHeaderTool(options.configPath);
     tools[setHeader.name] = setHeader.tool;
+    const browserAuth = createBrowserAuthTool(options.configPath);
+    tools[browserAuth.name] = browserAuth.tool;
   }
 
   if (options.specialists && options.specialists.length > 0) {
