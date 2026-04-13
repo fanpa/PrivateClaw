@@ -198,6 +198,28 @@ export async function startChat(
           skillsDir: currentOptions.skillsDir,
           configPath: currentOptions.configPath,
           specialists: currentOptions.specialists,
+          onReload: async () => {
+            if (!currentOptions.configPath) return 'Config path not available.';
+            try {
+              const config = loadConfig(currentOptions.configPath);
+              initFromConfig(config);
+              currentOptions = {
+                ...currentOptions,
+                temperature: config.provider.temperature,
+                reflectionLoops: config.provider.reflectionLoops,
+                maxHistoryMessages: config.session.maxHistoryMessages,
+                defaultHeaders: config.security.defaultHeaders,
+                allowedDomains: config.security.allowedDomains,
+                allowedCommands: config.security.allowedCommands,
+                skills: config.skills,
+                skillsDir: config.skillsDir,
+                sessionDir: config.session.sessionDir,
+              };
+              return null; // success
+            } catch (err) {
+              return err instanceof Error ? err.message : String(err);
+            }
+          },
           onChunk: () => {},
           onReflecting: renderReflecting,
           onReflectionDone: renderReflectionDone,

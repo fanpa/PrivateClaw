@@ -5,6 +5,8 @@ import { createWebFetchTool } from './web-fetch.js';
 import { createApiCallTool } from './api-call.js';
 import { createUseSkillTool } from './use-skill.js';
 import { createCreateSkillTool } from './create-skill.js';
+import { createSetHeaderTool } from './set-header.js';
+import { createReloadConfigTool } from './reload-config.js';
 import { createDelegateTool } from './delegate.js';
 import type { SpecialistEntry } from './delegate.js';
 import type { ApprovalDecision } from '../approval/types.js';
@@ -17,6 +19,7 @@ export interface BuiltinToolsOptions {
   skillsDir?: string;
   configPath?: string;
   specialists?: SpecialistEntry[];
+  onReload?: () => Promise<string | null>;
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
   allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
@@ -73,11 +76,18 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
       options.configPath,
     );
     tools[createSkill.name] = createSkill.tool;
+    const setHeader = createSetHeaderTool(options.configPath);
+    tools[setHeader.name] = setHeader.tool;
   }
 
   if (options.specialists && options.specialists.length > 0) {
     const delegate = createDelegateTool(options.specialists);
     tools[delegate.name] = delegate.tool;
+  }
+
+  if (options.onReload) {
+    const reloadConfig = createReloadConfigTool(options.onReload);
+    tools[reloadConfig.name] = reloadConfig.tool;
   }
 
   if (options.onApproval || options.onBeforeToolExecute) {
