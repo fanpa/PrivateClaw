@@ -3,29 +3,29 @@ import { createBrowserAuthTool } from '../../src/tools/browser-auth.js';
 
 describe('createBrowserAuthTool', () => {
   it('has correct name', () => {
-    const tool = createBrowserAuthTool('/fake/config.json');
+    const tool = createBrowserAuthTool();
     expect(tool.name).toBe('browser_auth');
   });
 
   it('has inputSchema defined', () => {
-    const tool = createBrowserAuthTool('/fake/config.json');
+    const tool = createBrowserAuthTool();
     expect(tool.tool.inputSchema).toBeDefined();
   });
 
   it('inputSchema parses valid input', () => {
-    const tool = createBrowserAuthTool('/fake/config.json');
+    const tool = createBrowserAuthTool();
     const schema = tool.tool.inputSchema as import('zod').ZodSchema;
     const parsed = schema.parse({ url: 'https://example.com/login' });
     expect(parsed.url).toBe('https://example.com/login');
   });
 
-  it('tool description mentions extraHeaders', () => {
-    const tool = createBrowserAuthTool('/fake/config.json');
-    expect(tool.tool.description.toLowerCase()).toContain('extraheaders');
+  it('tool description mentions set_header', () => {
+    const tool = createBrowserAuthTool();
+    expect(tool.tool.description.toLowerCase()).toContain('set_header');
   });
 
   it('inputSchema parses input with extraHeaders', () => {
-    const tool = createBrowserAuthTool('/fake/config.json');
+    const tool = createBrowserAuthTool();
     const schema = tool.tool.inputSchema as import('zod').ZodSchema;
     const parsed = schema.parse({
       url: 'https://example.com/login',
