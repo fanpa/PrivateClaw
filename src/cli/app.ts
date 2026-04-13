@@ -42,7 +42,9 @@ export function initFromConfig(config: Config): typeof globalThis.fetch {
     }
   }
 
-  const restrictedFetch = createRestrictedFetch(config.security.allowedDomains);
+  const restrictedFetch = createRestrictedFetch(config.security.allowedDomains, {
+    tlsSkipVerify: config.security.tlsSkipVerify,
+  });
   initProvider(config.provider, restrictedFetch);
   return restrictedFetch;
 }

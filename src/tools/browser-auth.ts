@@ -18,7 +18,7 @@ export function createBrowserAuthTool(configPath: string) {
     name: 'browser_auth' as const,
     description: 'Open a browser for the user to log in, then capture cookies and save to config.',
     tool: {
-      description: 'Open Chrome/Edge browser to a login page. The user logs in manually, then cookies are automatically captured and saved to config. After this, api_call requests to the domain will include the captured cookies. Call reload_config after to apply.',
+      description: 'Open Chrome/Edge browser to a login page. The user logs in manually, then cookies are automatically captured and saved to config. After this, api_call requests to the domain will include the captured cookies. Call reload_config after to apply. Pass extraHeaders to inject custom HTTP headers into every browser request (e.g. {"User-Agent": "CustomBot/1.0"}).',
       inputSchema: parameters,
       execute: async ({ url, extraHeaders }: z.infer<typeof parameters>): Promise<BrowserAuthResult> => {
         try {

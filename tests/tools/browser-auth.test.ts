@@ -19,6 +19,11 @@ describe('createBrowserAuthTool', () => {
     expect(parsed.url).toBe('https://example.com/login');
   });
 
+  it('tool description mentions extraHeaders', () => {
+    const tool = createBrowserAuthTool('/fake/config.json');
+    expect(tool.tool.description.toLowerCase()).toContain('extraheaders');
+  });
+
   it('inputSchema parses input with extraHeaders', () => {
     const tool = createBrowserAuthTool('/fake/config.json');
     const schema = tool.tool.inputSchema as import('zod').ZodSchema;

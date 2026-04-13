@@ -51,6 +51,33 @@ describe('ConfigSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('defaults security.tlsSkipVerify to false', () => {
+    const config = {
+      provider: {
+        type: 'ollama',
+        baseURL: 'http://localhost:11434/api',
+        model: 'llama3.2',
+      },
+    };
+    const result = ConfigSchema.parse(config);
+    expect(result.security.tlsSkipVerify).toBe(false);
+  });
+
+  it('parses security.tlsSkipVerify: true', () => {
+    const config = {
+      provider: {
+        type: 'ollama',
+        baseURL: 'http://localhost:11434/api',
+        model: 'llama3.2',
+      },
+      security: {
+        tlsSkipVerify: true,
+      },
+    };
+    const result = ConfigSchema.parse(config);
+    expect(result.security.tlsSkipVerify).toBe(true);
+  });
+
   it('defaults security.allowedDomains to empty array', () => {
     const config = {
       provider: {

@@ -13,6 +13,7 @@ const SecuritySchema = z.object({
   allowedDomains: z.array(z.string()).default([]),
   allowedCommands: z.array(z.string()).default([]),
   defaultHeaders: z.record(z.record(z.string())).default({}),
+  tlsSkipVerify: z.boolean().default(false),
 });
 
 const SessionSchema = z.object({
