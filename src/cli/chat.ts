@@ -41,7 +41,7 @@ export function createApprovalHandler(
   rl: readline.Interface,
   approvalManager: ToolApprovalManager,
 ) {
-  return (toolName: string, args: unknown): Promise<ApprovalDecision> => {
+  const handler = (toolName: string, args: unknown): Promise<ApprovalDecision> => {
     const key = buildApprovalKey(toolName, args);
 
     if (!approvalManager.needsApproval(key)) {
@@ -68,6 +68,14 @@ export function createApprovalHandler(
         resolve(decision);
       });
     });
+  };
+
+  return {
+    handler,
+    willPrompt: (toolName: string, args: unknown): boolean => {
+      const key = buildApprovalKey(toolName, args);
+      return approvalManager.needsApproval(key);
+    },
   };
 }
 
@@ -187,6 +195,7 @@ export async function startChat(
       messages.push({ role: 'user', content: trimmed });
 
       try {
+        const approval = createApprovalHandler(rl, approvalManager);
         const result = await runAgentTurn({
           messages,
           temperature: currentOptions.temperature,
@@ -223,7 +232,11 @@ export async function startChat(
           onChunk: () => {},
           onReflecting: renderReflecting,
           onReflectionDone: renderReflectionDone,
-          onToolCall: (name, args) => renderToolCall(name, args),
+          onToolCall: (name, args) => {
+            if (!approval.willPrompt(name, args)) {
+              renderToolCall(name, args);
+            }
+          },
           onToolResult: (name, result) => {
             renderToolResult(name, result);
             const res = result as Record<string, unknown> | undefined;
@@ -231,7 +244,7 @@ export async function startChat(
               renderError(`Tool "${name}" failed: ${res.error}`);
             }
           },
-          onToolApproval: createApprovalHandler(rl, approvalManager),
+          onToolApproval: approval.handler,
         });
 
         renderNewLine();

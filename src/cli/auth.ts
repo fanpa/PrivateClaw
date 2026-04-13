@@ -1,18 +1,21 @@
 import puppeteer from 'puppeteer-core';
-import { readFileSync, writeFileSync } from 'node:fs';
 
 export interface AuthOptions {
   url: string;
-  configPath: string;
   waitForUrl?: string;
   timeout?: number;
   extraHeaders?: Record<string, string>;
 }
 
-interface AuthResult {
+export interface CapturedCookie {
+  name: string;
+  value: string;
   domain: string;
-  cookieCount: number;
-  cookieHeader: string;
+}
+
+export interface AuthResult {
+  domain: string;
+  cookies: CapturedCookie[];
 }
 
 const EDGE_PATH_WIN = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
@@ -30,7 +33,7 @@ async function launchBrowser(headless: boolean) {
 }
 
 export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
-  const { url, configPath, timeout = 300000 } = options;
+  const { url, timeout = 300000 } = options;
   const targetUrl = new URL(url);
   const domain = targetUrl.hostname;
 
@@ -89,22 +92,8 @@ export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
     throw new Error(`No cookies found for domain: ${domain}`);
   }
 
-  const cookieHeader = domainCookies.map((c) => `${c.name}=${c.value}`).join('; ');
-
-  const raw = readFileSync(configPath, 'utf-8');
-  const config = JSON.parse(raw);
-
-  if (!config.security) config.security = {};
-  if (!config.security.defaultHeaders) config.security.defaultHeaders = {};
-  if (!config.security.defaultHeaders[domain]) config.security.defaultHeaders[domain] = {};
-
-  config.security.defaultHeaders[domain]['Cookie'] = cookieHeader;
-
-  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
-
   return {
     domain,
-    cookieCount: domainCookies.length,
-    cookieHeader,
+    cookies: domainCookies.map((c) => ({ name: c.name, value: c.value, domain: c.domain })),
   };
 }

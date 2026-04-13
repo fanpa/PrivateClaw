@@ -81,7 +81,10 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     tools[createSkill.name] = createSkill.tool;
     const setHeader = createSetHeaderTool(options.configPath);
     tools[setHeader.name] = setHeader.tool;
-    const browserAuth = createBrowserAuthTool(options.configPath);
+  }
+
+  {
+    const browserAuth = createBrowserAuthTool();
     tools[browserAuth.name] = browserAuth.tool;
   }
 

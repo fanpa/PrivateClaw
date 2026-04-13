@@ -24,7 +24,7 @@ describe('createApprovalHandler', () => {
   });
 
   it('prompts on first call and returns allow_always when user answers a', async () => {
-    const handler = createApprovalHandler(rl, manager);
+    const { handler } = createApprovalHandler(rl, manager);
 
     (rl.question as ReturnType<typeof vi.fn>).mockImplementationOnce(
       (_prompt: string, cb: (ans: string) => void) => cb('a'),
@@ -37,25 +37,22 @@ describe('createApprovalHandler', () => {
   });
 
   it('skips prompt on second call after allow_always and auto-approves', async () => {
-    const handler = createApprovalHandler(rl, manager);
+    const { handler } = createApprovalHandler(rl, manager);
 
-    // First call: user answers 'a' (allow always)
     (rl.question as ReturnType<typeof vi.fn>).mockImplementationOnce(
       (_prompt: string, cb: (ans: string) => void) => cb('a'),
     );
     await handler('file_read', { filePath: '/tmp/x' });
 
-    // Second call: must not prompt again
     const second = await handler('file_read', { filePath: '/tmp/y' });
 
-    expect(rl.question).toHaveBeenCalledTimes(1); // still only from first call
-    expect(second).toBe('allow_once'); // auto-approved without prompt
+    expect(rl.question).toHaveBeenCalledTimes(1);
+    expect(second).toBe('allow_once');
   });
 
   it('prompts again on second call after allow_once', async () => {
-    const handler = createApprovalHandler(rl, manager);
+    const { handler } = createApprovalHandler(rl, manager);
 
-    // First call: user answers 'y' (allow once)
     (rl.question as ReturnType<typeof vi.fn>)
       .mockImplementationOnce((_: string, cb: (ans: string) => void) => cb('y'))
       .mockImplementationOnce((_: string, cb: (ans: string) => void) => cb('y'));
@@ -63,30 +60,28 @@ describe('createApprovalHandler', () => {
     await handler('file_read', { filePath: '/tmp/x' });
     await handler('file_read', { filePath: '/tmp/y' });
 
-    expect(rl.question).toHaveBeenCalledTimes(2); // prompted both times
+    expect(rl.question).toHaveBeenCalledTimes(2);
   });
 
   it('allow_always for use_skill:yield-report does not skip prompt for use_skill:email', async () => {
-    const handler = createApprovalHandler(rl, manager);
+    const { handler } = createApprovalHandler(rl, manager);
 
-    // First call: use_skill with name=yield-report, user answers 'a'
     (rl.question as ReturnType<typeof vi.fn>).mockImplementationOnce(
       (_: string, cb: (ans: string) => void) => cb('a'),
     );
     await handler('use_skill', { name: 'yield-report' });
 
-    // Second call: use_skill with name=email — must still prompt
     (rl.question as ReturnType<typeof vi.fn>).mockImplementationOnce(
       (_: string, cb: (ans: string) => void) => cb('y'),
     );
     const second = await handler('use_skill', { name: 'email' });
 
-    expect(rl.question).toHaveBeenCalledTimes(2); // both prompted
+    expect(rl.question).toHaveBeenCalledTimes(2);
     expect(second).toBe('allow_once');
   });
 
   it('allow_always for use_skill:yield-report auto-approves second call for same skill', async () => {
-    const handler = createApprovalHandler(rl, manager);
+    const { handler } = createApprovalHandler(rl, manager);
 
     (rl.question as ReturnType<typeof vi.fn>).mockImplementationOnce(
       (_: string, cb: (ans: string) => void) => cb('a'),
@@ -95,7 +90,23 @@ describe('createApprovalHandler', () => {
 
     const second = await handler('use_skill', { name: 'yield-report' });
 
-    expect(rl.question).toHaveBeenCalledTimes(1); // only first call prompted
+    expect(rl.question).toHaveBeenCalledTimes(1);
     expect(second).toBe('allow_once');
+  });
+
+  it('willPrompt returns true for pending tools', () => {
+    const { willPrompt } = createApprovalHandler(rl, manager);
+    expect(willPrompt('file_read', {})).toBe(true);
+  });
+
+  it('willPrompt returns false after allow_always', async () => {
+    const { handler, willPrompt } = createApprovalHandler(rl, manager);
+
+    (rl.question as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      (_: string, cb: (ans: string) => void) => cb('a'),
+    );
+    await handler('file_read', {});
+
+    expect(willPrompt('file_read', {})).toBe(false);
   });
 });
