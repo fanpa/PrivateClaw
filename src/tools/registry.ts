@@ -1,5 +1,6 @@
 import { fileReadTool } from './file-read.js';
 import { fileWriteTool } from './file-write.js';
+import { fileUpdateTool } from './file-update.js';
 import { createShellExecTool } from './shell-exec.js';
 import { createWebFetchTool } from './web-fetch.js';
 import { createApiCallTool } from './api-call.js';
@@ -61,6 +62,7 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
   const tools: Record<string, any> = {
     [fileReadTool.name]: fileReadTool.tool,
     [fileWriteTool.name]: fileWriteTool.tool,
+    [fileUpdateTool.name]: fileUpdateTool.tool,
     [shellExec.name]: shellExec.tool,
     [webFetch.name]: webFetch.tool,
     [apiCall.name]: apiCall.tool,
