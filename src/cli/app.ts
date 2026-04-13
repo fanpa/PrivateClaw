@@ -44,6 +44,7 @@ export function initFromConfig(config: Config): typeof globalThis.fetch {
 
   const restrictedFetch = createRestrictedFetch(config.security.allowedDomains, {
     tlsSkipVerify: config.security.tlsSkipVerify,
+    tlsCaPath: config.security.tlsCaPath,
   });
   initProvider(config.provider, restrictedFetch);
   return restrictedFetch;

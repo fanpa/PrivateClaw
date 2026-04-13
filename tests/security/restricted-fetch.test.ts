@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { createRestrictedFetch } from '../../src/security/restricted-fetch.js';
+import { writeFileSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('createRestrictedFetch', () => {
   const restrictedFetch = createRestrictedFetch(['localhost']);
@@ -21,6 +23,78 @@ describe('createRestrictedFetch', () => {
     await expect(
       openFetch('http://localhost:99999/nonexistent')
     ).rejects.not.toThrow('Domain not allowed');
+  });
+
+  describe('tlsCaPath option', () => {
+    const caPath = join(import.meta.dirname, '__fixtures_ca__.pem');
+    const fakeCert = '-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----\n';
+
+    beforeAll(() => {
+      writeFileSync(caPath, fakeCert);
+    });
+
+    afterAll(() => {
+      unlinkSync(caPath);
+    });
+
+    it('passes tls.ca in fetch init when tlsCaPath is set', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(new Response('ok'));
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = mockFetch;
+
+      try {
+        const fetchFn = createRestrictedFetch(['example.com'], { tlsCaPath: caPath });
+        await fetchFn('https://example.com/api');
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://example.com/api',
+          expect.objectContaining({ tls: expect.objectContaining({ ca: expect.anything() }) }),
+        );
+        const [, init] = mockFetch.mock.calls[0] as [unknown, { tls: { ca: Buffer } }];
+        expect(init.tls.ca.toString()).toBe(fakeCert);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('does not set rejectUnauthorized:false when tlsCaPath is set (cert check stays on)', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(new Response('ok'));
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = mockFetch;
+
+      try {
+        const fetchFn = createRestrictedFetch(['example.com'], { tlsCaPath: caPath });
+        await fetchFn('https://example.com/api');
+        const [, init] = mockFetch.mock.calls[0] as [unknown, { tls: Record<string, unknown> }];
+        expect(init.tls).not.toHaveProperty('rejectUnauthorized');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('tlsCaPath takes priority over tlsSkipVerify', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(new Response('ok'));
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = mockFetch;
+
+      try {
+        const fetchFn = createRestrictedFetch(['example.com'], {
+          tlsCaPath: caPath,
+          tlsSkipVerify: true,
+        });
+        await fetchFn('https://example.com/api');
+        const [, init] = mockFetch.mock.calls[0] as [unknown, { tls: Record<string, unknown> }];
+        expect(init.tls).toHaveProperty('ca');
+        expect(init.tls).not.toHaveProperty('rejectUnauthorized');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('throws at setup time if tlsCaPath file does not exist', () => {
+      expect(() =>
+        createRestrictedFetch(['example.com'], { tlsCaPath: '/nonexistent/ca.pem' }),
+      ).toThrow();
+    });
   });
 
   describe('tlsSkipVerify option', () => {

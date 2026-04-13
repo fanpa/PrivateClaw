@@ -14,6 +14,7 @@ const SecuritySchema = z.object({
   allowedCommands: z.array(z.string()).default([]),
   defaultHeaders: z.record(z.record(z.string())).default({}),
   tlsSkipVerify: z.boolean().default(false),
+  tlsCaPath: z.string().optional(),
 });
 
 const SessionSchema = z.object({
