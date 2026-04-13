@@ -1,7 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { executeInit, autoRegisterSkills } from '../../src/cli/init.js';
-import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const TEST_DIR = join(import.meta.dirname, '__test_init__');
 const TEST_CONFIG = join(TEST_DIR, 'config.json');
@@ -25,6 +26,20 @@ describe('executeInit', () => {
   it('creates default skill files', () => {
     executeInit(TEST_CONFIG, TEST_SKILLS);
     expect(existsSync(join(TEST_SKILLS, 'failure-analysis', 'skill.md'))).toBe(true);
+  });
+
+  it('does not throw EEXIST when config path has no directory component (dirname = .)', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'pc-init-test-'));
+    const origCwd = process.cwd();
+    try {
+      process.chdir(tmpDir);
+      // dirname('config.json') === '.' — used to throw EEXIST on mkdirSync('.')
+      expect(() => executeInit('config.json', 'skills')).not.toThrow();
+      expect(existsSync(join(tmpDir, 'config.json'))).toBe(true);
+    } finally {
+      process.chdir(origCwd);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it('does not overwrite existing config', () => {

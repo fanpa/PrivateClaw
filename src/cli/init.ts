@@ -114,7 +114,10 @@ export function executeInit(configPath: string, skillsDir: string): { created: s
   const created: string[] = [];
 
   if (!existsSync(configPath)) {
-    mkdirSync(dirname(configPath), { recursive: true });
+    const configDir = dirname(configPath);
+    if (configDir !== '.') {
+      mkdirSync(configDir, { recursive: true });
+    }
     const config = {
       ...DEFAULT_CONFIG,
       provider: { ...DEFAULT_CONFIG.provider, baseURL: 'http://localhost:8080/v1', model: 'gpt-4o' },
@@ -251,7 +254,10 @@ export async function executeInteractiveInit(configPath: string, skillsDir: stri
     }
 
     // 7. Write config
-    mkdirSync(dirname(configPath), { recursive: true });
+    const configDir = dirname(configPath);
+    if (configDir !== '.') {
+      mkdirSync(configDir, { recursive: true });
+    }
     writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
     console.log(`\n✓ Config saved to ${configPath}`);
 
