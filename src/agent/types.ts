@@ -23,7 +23,8 @@ export function buildSystemPrompt(skills: SkillConfig[] = [], specialistRoles: s
 - web_fetch: Fetch a URL and return the response body
 - api_call: Make an HTTP API call (GET, POST, PATCH, PUT, DELETE) with custom headers and body
 - create_skill: Create a new reusable skill by writing a skill.md file and registering it in the config
-- set_header: Set default HTTP headers for a domain (Authorization, User-Agent, Cookie, etc.)`;
+- set_header: Set default HTTP headers for a domain (Authorization, User-Agent, Cookie, etc.)
+- reload_config: Reload configuration file to apply changes`;
 
   if (specialistRoles.length > 0) {
     prompt += `\n- delegate: Delegate a task to a specialist model for higher quality results`;

@@ -24,6 +24,7 @@ export interface RunAgentTurnOptions {
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
   onToolResult?: (toolName: string, result: unknown) => void;
   onToolApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
+  onReload?: () => Promise<string | null>;
   onReflecting?: (loop: number) => void;
   onReflectionDone?: (changed: boolean) => void;
 }
@@ -102,6 +103,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     skillsDir: options.skillsDir,
     configPath: options.configPath,
     specialists: options.specialists,
+    onReload: options.onReload,
     onApproval: options.onToolApproval,
   });
 
