@@ -44,8 +44,42 @@ export function renderErrorWithStack(err: unknown): void {
   }
 }
 
+function describeToolCall(toolName: string, args: unknown): string {
+  const a = args as Record<string, unknown> | null;
+  switch (toolName) {
+    case 'file_read':
+      return `Reading file ${a?.filePath ?? ''}`;
+    case 'file_write':
+      return `Writing file ${a?.filePath ?? ''}`;
+    case 'file_update':
+      return `Updating file ${a?.filePath ?? ''}`;
+    case 'shell_exec':
+      return `Running command: ${a?.command ?? ''}`;
+    case 'web_fetch':
+      return `Fetching ${a?.url ?? ''}`;
+    case 'api_call': {
+      const method = (a?.method as string ?? 'GET').toUpperCase();
+      return `API ${method} ${a?.url ?? ''}`;
+    }
+    case 'use_skill':
+      return `Loading skill "${a?.name ?? ''}"`;
+    case 'create_skill':
+      return `Creating skill "${a?.name ?? ''}"`;
+    case 'set_header':
+      return `Setting header for ${a?.domain ?? ''}`;
+    case 'reload_config':
+      return 'Reloading config';
+    case 'browser_auth':
+      return `Opening browser for ${a?.url ?? ''}`;
+    case 'delegate':
+      return `Delegating to ${a?.specialist ?? ''} specialist`;
+    default:
+      return `${toolName} ${JSON.stringify(args)}`;
+  }
+}
+
 export function renderToolCall(toolName: string, args: unknown): void {
-  console.log(chalk.yellow(`\n[tool:call] ${toolName}`), chalk.dim(JSON.stringify(args)));
+  console.log(chalk.yellow(`\n▶ ${describeToolCall(toolName, args)}`));
 }
 
 function getConsoleWidth(): number {
@@ -169,8 +203,7 @@ export function renderSessionInfo(sessionId: string, providerName: string): void
 }
 
 export function renderApprovalPrompt(toolName: string, args: unknown): void {
-  console.log(chalk.bold.yellow(`\n⚠ Tool "${toolName}" wants to execute:`));
-  console.log(chalk.dim(JSON.stringify(args, null, 2)));
+  console.log(chalk.bold.yellow(`\n⚠ ${describeToolCall(toolName, args)}`));
   console.log(chalk.yellow('  [y] Allow once  [a] Allow always  [n] Deny'));
 }
 
