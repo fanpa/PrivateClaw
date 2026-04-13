@@ -73,6 +73,8 @@ function describeToolCall(toolName: string, args: unknown): string {
       return `Opening browser for ${a?.url ?? ''}`;
     case 'delegate':
       return `Delegating to ${a?.specialist ?? ''} specialist`;
+    case 'sync_skills':
+      return 'Synchronizing skills';
     default:
       return `${toolName} ${JSON.stringify(args)}`;
   }
@@ -145,6 +147,23 @@ export function renderToolResult(toolName: string, result: unknown): void {
       console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.red(String(res.error)));
     } else {
       console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim('skill loaded'));
+    }
+    return;
+  }
+
+  // file_update: show colored diff
+  if (toolName === 'file_update') {
+    const message = res?.message as string | undefined;
+    const diff = res?.diff as string | undefined;
+    console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(message ?? ''));
+    if (diff) {
+      for (const line of diff.split('\n')) {
+        if (line.startsWith('+')) {
+          console.log(chalk.green(`  ${line}`));
+        } else if (line.startsWith('-')) {
+          console.log(chalk.red(`  ${line}`));
+        }
+      }
     }
     return;
   }
