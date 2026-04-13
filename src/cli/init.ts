@@ -26,19 +26,86 @@ const DEFAULT_CONFIG = {
 };
 
 const DEFAULT_SKILLS: Record<string, { description: string; content: string }> = {
-  'failure-analysis': {
-    description: '���비스 장애나 에러 로그를 분석하여 근본 원인�� 해결 방안을 제시합니다.',
-    content: `# Failure Analysis
-
-서비스 장애나 에러 상황��� 분석하는 스킬입니��.
-
-## Workflow
-
-1. 사용자에게 에러 메시지 또는 로그 파일 경���를 확인합니다.
-2. ��그 파일이 제공된 경우, \`file_read\` 도구로 로그를 읽습니다.
-3. 에러 패턴을 분석하고 원인을 추론합니다.
-4. 분석 결과를 에러 유형, 근본 원인, 영향 범위, 권장 조치 형식으로 요약���니다.
-`,
+  'drm-document-reader': {
+    description: 'DRM이 적용된 Excel, PowerPoint, Word 문서를 Windows PowerShell COM Automation으로 읽는 스킬',
+    content: [
+      '# DRM Document Reader',
+      '',
+      'DRM이 적용된 Excel, PowerPoint, Word 문서를 Windows PowerShell COM Automation으로 읽는 스킬입니다.',
+      'Office 애플리케이션이 백그라운드에서 실행되어 DRM 에이전트가 복호화를 허용합니다.',
+      '',
+      '> **주의:** Windows에서만 동작합니다. Microsoft Office가 설치되어 있어야 합니다.',
+      '',
+      '## Workflow',
+      '',
+      '### Excel (.xlsx, .xls)',
+      '',
+      '1. 먼저 시트 목록을 조회합니다:',
+      '```',
+      "shell_exec: $excel = New-Object -ComObject Excel.Application; $excel.Visible = $false; $excel.DisplayAlerts = $false; $wb = $excel.Workbooks.Open('FILE_PATH'); $wb.Sheets | ForEach-Object { $_.Name }; $wb.Close($false); $excel.Quit(); [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null",
+      '```',
+      '',
+      '2. 사용자에게 시트 목록을 보여주고 어떤 시트를 읽을지 확인합니다.',
+      '',
+      '3. 선택된 시트의 데이터를 읽습니다 (UsedRange, 최대 100행).',
+      '',
+      '4. 100행을 초과하는 경우, 사용자에게 추가 데이터가 필요한지 확인 후 범위를 지정하여 추가로 읽습니다.',
+      '',
+      '### PowerPoint (.pptx, .ppt)',
+      '',
+      '1. 슬라이드 수를 확인하고 텍스트를 추출합니다 (COM Automation).',
+      '',
+      '### Word (.docx, .doc)',
+      '',
+      '1. 문서 텍스트를 읽습니다 (최대 5000자, 초과 시 truncate).',
+      '',
+      '### 이미지 추출',
+      '',
+      '문서에 포함된 이미지를 임시 폴더에 저장할 수 있습니다. 추출된 이미지는 OCR 스킬과 연계하여 텍스트로 변환할 수 있습니다.',
+      '',
+      '## 주의사항',
+      '',
+      '- FILE_PATH는 반드시 절대 경로를 사용하세요',
+      '- COM 객체는 반드시 ReleaseComObject로 해제하세요',
+      '- 대용량 파일은 범위를 지정하여 단계적으로 읽으세요',
+      '- DRM 에이전트가 설치된 환경에서만 DRM 문서를 열 수 있습니다',
+      '',
+    ].join('\n'),
+  },
+  'ocr': {
+    description: '이미지 파일에서 텍스트를 추출하는 OCR 스킬 (외부 API 사용)',
+    content: [
+      '# OCR (Optical Character Recognition)',
+      '',
+      '이미지 파일에서 텍스트를 추출하는 스킬입니다. 외부 OCR API를 사용합니다.',
+      '',
+      '## 사전 준비',
+      '',
+      '사용자에게 OCR API 정보를 확인합니다:',
+      '1. **API Endpoint URL**',
+      '2. **인증 방식** (API Key, Bearer Token 등)',
+      '3. **요청 형식** (multipart/form-data 또는 base64 JSON)',
+      '',
+      '## Workflow',
+      '',
+      '### 방식 1: multipart/form-data',
+      '',
+      'api_call 도구로 이미지 파일을 OCR API에 업로드합니다.',
+      '',
+      '### 방식 2: base64 JSON',
+      '',
+      'shell_exec로 이미지를 base64 인코딩한 후 api_call로 전송합니다.',
+      '',
+      '### 방식 3: Google Cloud Vision API',
+      '',
+      'Google Cloud Vision API의 TEXT_DETECTION 기능을 사용합니다.',
+      '',
+      '## 주의사항',
+      '',
+      '- OCR API endpoint는 allowedDomains에 등록되어 있어야 합니다',
+      '- 인증이 필요한 경우 defaultHeaders에 API 키를 설정하세요',
+      '',
+    ].join('\n'),
   },
 };
 
