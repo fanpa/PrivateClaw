@@ -5,6 +5,7 @@ import { createWebFetchTool } from './web-fetch.js';
 import { createApiCallTool } from './api-call.js';
 import { createUseSkillTool } from './use-skill.js';
 import { createCreateSkillTool } from './create-skill.js';
+import { createSetHeaderTool } from './set-header.js';
 import { createDelegateTool } from './delegate.js';
 import type { SpecialistEntry } from './delegate.js';
 import type { ApprovalDecision } from '../approval/types.js';
@@ -73,6 +74,8 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
       options.configPath,
     );
     tools[createSkill.name] = createSkill.tool;
+    const setHeader = createSetHeaderTool(options.configPath);
+    tools[setHeader.name] = setHeader.tool;
   }
 
   if (options.specialists && options.specialists.length > 0) {
