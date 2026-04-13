@@ -1,4 +1,3 @@
-import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 export interface AuthOptions {
@@ -30,6 +29,17 @@ export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
   const domain = targetUrl.hostname;
 
   const channel = detectBrowserChannel();
+
+  let playwrightModule: typeof import('playwright-core');
+  try {
+    playwrightModule = await import('playwright-core');
+  } catch {
+    throw new Error(
+      'playwright-core is required for browser auth but could not be loaded.\n' +
+        'Install it with: npm install playwright-core',
+    );
+  }
+  const { chromium } = playwrightModule;
 
   console.log(`Opening ${channel} browser...`);
   console.log(`Please log in at: ${url}`);
