@@ -1,11 +1,12 @@
 import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync } from 'node:fs';
 
-interface AuthOptions {
+export interface AuthOptions {
   url: string;
   configPath: string;
   waitForUrl?: string;
   timeout?: number;
+  extraHeaders?: Record<string, string>;
 }
 
 interface AuthResult {
@@ -41,6 +42,11 @@ export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
 
   const context = await browser.newContext();
   const page = await context.newPage();
+
+  if (options.extraHeaders && Object.keys(options.extraHeaders).length > 0) {
+    await page.setExtraHTTPHeaders(options.extraHeaders);
+  }
+
   await page.goto(url);
 
   // Wait for user to complete login
