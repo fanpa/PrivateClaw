@@ -105,16 +105,12 @@ function renderHttpResult(toolName: string, result: Record<string, unknown>): vo
 export function renderToolResult(toolName: string, result: unknown): void {
   const res = result as Record<string, unknown> | undefined;
 
-  // use_skill: suppress full skill.md content; show compact summary
+  // use_skill: show only skill name, suppress full skill.md content
   if (toolName === 'use_skill') {
     if (res?.error) {
       console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.red(String(res.error)));
     } else {
-      const contentBytes =
-        typeof res?.content === 'string'
-          ? formatBytes(Buffer.byteLength(res.content, 'utf-8'))
-          : '?';
-      console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(`skill loaded (${contentBytes})`));
+      console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim('skill loaded'));
     }
     return;
   }
