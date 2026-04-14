@@ -26,6 +26,7 @@ export interface BuiltinToolsOptions {
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
   allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
+  generateDescription?: (content: string) => Promise<string>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,7 +84,7 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     tools[createSkill.name] = createSkill.tool;
     const setHeader = createSetHeaderTool(options.configPath);
     tools[setHeader.name] = setHeader.tool;
-    const syncSkills = createSyncSkillsTool(options.configPath, options.skillsDir ?? './skills');
+    const syncSkills = createSyncSkillsTool(options.configPath, options.skillsDir ?? './skills', options.generateDescription);
     tools[syncSkills.name] = syncSkills.tool;
   }
 
