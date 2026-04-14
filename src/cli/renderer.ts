@@ -1,9 +1,11 @@
 import chalk from 'chalk';
+import { existsSync, readFileSync } from 'node:fs';
 import { renderMarkdown } from './markdown.js';
 
 let verbose = false;
 let thinkingTimer: ReturnType<typeof setInterval> | null = null;
 let toolCallPending = false; // tracks if a transient tool-call line is showing
+let approvalLineCount = 0; // tracks lines printed by approval prompt for cleanup
 
 /** Move cursor up N lines and clear each */
 function eraseLines(count: number): void {
@@ -304,6 +306,71 @@ export function renderReflectionDone(changed: boolean): void {
  * Show approval prompt — this MUST remain visible until the user answers.
  * No pendingLineCount tracking here; clearing is handled by renderApprovalResult.
  */
+/** Returns number of lines printed */
+function renderFileDiffPreview(filePath: string, newContent: string): number {
+  const width = getConsoleWidth();
+  const maxPreviewLines = 15;
+  let printed = 0;
+
+  if (!existsSync(filePath)) {
+    // New file — show content preview
+    const lines = newContent.split('\n');
+    const display = lines.slice(0, maxPreviewLines);
+    for (const line of display) {
+      const truncated = line.length > width - 6 ? line.slice(0, width - 9) + '...' : line;
+      console.log(chalk.green(`  + ${truncated}`));
+      printed++;
+    }
+    if (lines.length > maxPreviewLines) {
+      console.log(chalk.dim(`  ... ${lines.length - maxPreviewLines} more lines`));
+      printed++;
+    }
+    return printed;
+  }
+
+  // Existing file — show diff
+  let oldContent: string;
+  try {
+    oldContent = readFileSync(filePath, 'utf-8');
+  } catch {
+    return 0;
+  }
+
+  if (oldContent === newContent) {
+    console.log(chalk.dim('  (no changes)'));
+    return 1;
+  }
+
+  const oldLines = oldContent.split('\n');
+  const newLines = newContent.split('\n');
+  const diffLines: string[] = [];
+
+  const maxLen = Math.max(oldLines.length, newLines.length);
+  for (let i = 0; i < maxLen; i++) {
+    const oldLine = i < oldLines.length ? oldLines[i] : undefined;
+    const newLine = i < newLines.length ? newLines[i] : undefined;
+    if (oldLine === newLine) continue;
+    if (oldLine !== undefined) diffLines.push(`- ${oldLine}`);
+    if (newLine !== undefined) diffLines.push(`+ ${newLine}`);
+  }
+
+  const display = diffLines.slice(0, maxPreviewLines);
+  for (const line of display) {
+    const truncated = line.length > width - 4 ? line.slice(0, width - 7) + '...' : line;
+    if (line.startsWith('+')) {
+      console.log(chalk.green(`  ${truncated}`));
+    } else {
+      console.log(chalk.red(`  ${truncated}`));
+    }
+    printed++;
+  }
+  if (diffLines.length > maxPreviewLines) {
+    console.log(chalk.dim(`  ... ${diffLines.length - maxPreviewLines} more changes`));
+    printed++;
+  }
+  return printed;
+}
+
 export function renderApprovalPrompt(toolName: string, args: unknown): void {
   // If a transient tool-call line is showing, clear it first
   if (!verbose && toolCallPending) {
@@ -312,17 +379,26 @@ export function renderApprovalPrompt(toolName: string, args: unknown): void {
     toolCallPending = false;
   }
   console.log(chalk.bold.yellow(`\n⚠ ${describeToolCall(toolName, args)}`));
+  approvalLineCount = 2; // blank line + description
+
+  // Show diff preview for file operations
+  const a = args as Record<string, unknown> | null;
+  if ((toolName === 'file_update' || toolName === 'file_write') && a?.filePath && a?.content) {
+    approvalLineCount += renderFileDiffPreview(a.filePath as string, a.content as string);
+  }
+
   console.log(chalk.yellow('  [y] Allow once  [a] Allow always  [n] Deny'));
+  approvalLineCount++; // options line
 }
 
 /**
  * After user answers, clear the prompt and show a one-line summary.
  */
 export function renderApprovalResult(toolName: string, decision: string): void {
-  if (!verbose) {
-    // Erase: user input line (current) + options line + description line + blank line = 4 lines up
-    clearCurrentLine();
-    eraseLines(3);
+  if (!verbose && approvalLineCount > 0) {
+    clearCurrentLine(); // clear user's input line
+    eraseLines(approvalLineCount); // erase the prompt + diff preview
+    approvalLineCount = 0;
   }
 
   if (decision === 'deny') {
