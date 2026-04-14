@@ -16,7 +16,7 @@ import { join } from 'path'
 import { spawnSync } from 'child_process'
 
 // These can never be bundled regardless of optional status
-const ALWAYS_EXTERNAL = ['electron']
+const ALWAYS_EXTERNAL = ['electron', 'chromium-bidi']
 
 function collectOptionalDeps(nodeModulesPath: string): Set<string> {
   const optional = new Set<string>()
