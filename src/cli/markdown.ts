@@ -25,6 +25,7 @@ function computeTableOptions(text: string, consoleWidth: number): Record<string,
     colWidths: Array(maxCols).fill(colWidth),
     wordWrap: true,
     wrapOnWordBoundary: false,
+    truncate: false,
   };
 }
 
