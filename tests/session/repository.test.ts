@@ -77,6 +77,35 @@ describe('SessionRepository (JSON)', () => {
     expect(existsSync(filePath)).toBe(false);
   });
 
+  it('appendMessages adds only new messages', () => {
+    const session = repo.create('Append Test');
+    const initial: ModelMessage[] = [
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'hi' },
+    ];
+    repo.updateMessages(session.id, initial);
+
+    const newMsgs: ModelMessage[] = [
+      { role: 'user', content: 'question' },
+      { role: 'assistant', content: 'answer' },
+    ];
+    repo.appendMessages(session.id, newMsgs);
+
+    const loaded = repo.getById(session.id);
+    expect(loaded!.messages).toHaveLength(4);
+    expect(loaded!.messages[2]).toEqual({ role: 'user', content: 'question' });
+    expect(loaded!.messages[3]).toEqual({ role: 'assistant', content: 'answer' });
+  });
+
+  it('appendMessages does nothing for empty array', () => {
+    const session = repo.create('Empty Append');
+    repo.updateMessages(session.id, [{ role: 'user', content: 'test' }]);
+    repo.appendMessages(session.id, []);
+
+    const loaded = repo.getById(session.id);
+    expect(loaded!.messages).toHaveLength(1);
+  });
+
   it('updates index.json when session is deleted', () => {
     const s1 = repo.create('Keep');
     const s2 = repo.create('Delete');

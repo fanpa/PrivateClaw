@@ -81,6 +81,24 @@ export class SessionRepository {
     }
   }
 
+  appendMessages(id: string, newMessages: ModelMessage[]): void {
+    if (newMessages.length === 0) return;
+
+    const session = this.getById(id);
+    if (!session) return;
+
+    session.messages.push(...newMessages);
+    session.updatedAt = new Date().toISOString();
+    writeFileSync(this.sessionPath(id), JSON.stringify(session, null, 2) + '\n', 'utf-8');
+
+    const index = this.readIndex();
+    const entry = index.find((e) => e.id === id);
+    if (entry) {
+      entry.updatedAt = session.updatedAt;
+      this.writeIndex(index);
+    }
+  }
+
   delete(id: string): void {
     const path = this.sessionPath(id);
     if (existsSync(path)) rmSync(path);
