@@ -105,6 +105,18 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     specialists: options.specialists,
     onReload: options.onReload,
     onApproval: options.onToolApproval,
+    generateDescription: async (content: string) => {
+      const result = await generateText({
+        model: effectiveModel,
+        messages: [
+          {
+            role: 'user',
+            content: `You are generating a skill description for an AI agent's config file. Read the skill document below and write a single concise sentence (under 20 words) describing WHEN to use this skill. Focus on trigger conditions, not implementation details.\n\nSkill:\n${content}`,
+          },
+        ],
+      });
+      return result.text.trim();
+    },
   });
 
   let currentMessages: ModelMessage[] = applySliding([...messages], maxHistory);
