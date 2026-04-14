@@ -8,16 +8,13 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-bun:
     strategy:
       matrix:
         include:
           - os: ubuntu-22.04
             target: bun-linux-x64
             artifact: privateclaw-linux-x64
-          - os: macos-latest
-            target: bun-darwin-arm64
-            artifact: privateclaw-darwin-arm64
           - os: windows-latest
             target: bun-windows-x64
             artifact: privateclaw-windows-x64.exe
@@ -49,3 +46,30 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.artifact }}
+
+  build-sea:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build TypeScript
+        run: pnpm build
+
+      - name: Build SEA binary
+        run: node scripts/build-sea.ts privateclaw-darwin-arm64
+
+      - name: Upload binary to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: privateclaw-darwin-arm64

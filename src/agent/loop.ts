@@ -166,7 +166,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     // HTTP connection is properly drained before any subsequent request.
     const response = await result.response;
     const stepMessages = response.messages as ModelMessage[];
-    allResponseMessages = [...allResponseMessages, ...stepMessages];
+    allResponseMessages.push(...stepMessages);
 
     // Stop if the model produced text (final answer), or if no tool calls were made.
     if (stepHasText || !stepHasToolCall) break;
