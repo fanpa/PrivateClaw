@@ -45,6 +45,10 @@ jobs:
       - name: Compile standalone binary
         run: bun run scripts/build-binary.ts ${{ matrix.target }} ${{ matrix.artifact }}
 
+      - name: Ad-hoc codesign (macOS)
+        if: runner.os == 'macOS'
+        run: codesign --force --sign - ${{ matrix.artifact }}
+
       - name: Upload binary to release
         uses: softprops/action-gh-release@v2
         with:
