@@ -3,6 +3,7 @@ import { renderMarkdown } from './markdown.js';
 
 let verbose = false;
 let pendingLineCount = 0;
+let thinkingTimer: ReturnType<typeof setInterval> | null = null;
 
 function clearPendingLines(): void {
   if (pendingLineCount > 0) {
@@ -221,19 +222,43 @@ export function renderToolResult(toolName: string, result: unknown): void {
   }
 }
 
+function startThinkingAnimation(): void {
+  stopThinkingAnimation();
+  const frames = ['.', '..', '...', '..'];
+  let i = 0;
+  // Show initial frame immediately
+  process.stdout.write(chalk.magenta(`thinking ${frames[0]}`));
+  thinkingTimer = setInterval(() => {
+    i = (i + 1) % frames.length;
+    clearCurrentLine();
+    process.stdout.write(chalk.magenta(`thinking ${frames[i]}`));
+  }, 500);
+}
+
+function stopThinkingAnimation(): void {
+  if (thinkingTimer) {
+    clearInterval(thinkingTimer);
+    thinkingTimer = null;
+  }
+}
+
 export function renderReflecting(loop: number): void {
   if (verbose) {
     console.log(chalk.magenta(`\n[thinking] loop ${loop}...`));
   } else {
-    process.stdout.write(chalk.magenta(`\nthinking...`));
+    if (loop === 1) {
+      process.stdout.write('\n');
+    }
+    clearCurrentLine();
+    startThinkingAnimation();
   }
 }
 
 export function renderReflectionDone(changed: boolean): void {
+  stopThinkingAnimation();
   if (verbose) {
     console.log(chalk.magenta(`[thinking] ${changed ? 'response updated' : 'done'}`));
   } else {
-    // Clear the "thinking..." line — result will be printed directly after
     clearCurrentLine();
   }
 }
