@@ -88,18 +88,24 @@ function getConsoleWidth(): number {
   return process.stdout.columns || 80;
 }
 
-function truncateText(text: string, maxChars: number): { truncated: string; isTruncated: boolean; totalLines: number } {
-  const totalLines = text.split('\n').length;
-  if (text.length <= maxChars) {
-    return { truncated: text, isTruncated: false, totalLines };
-  }
-  return { truncated: text.slice(0, maxChars), isTruncated: true, totalLines };
-}
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function wrapText(text: string, width: number): string {
+  const lines: string[] = [];
+  for (const line of text.split('\n')) {
+    if (line.length <= width) {
+      lines.push(line);
+    } else {
+      for (let i = 0; i < line.length; i += width) {
+        lines.push(line.slice(i, i + width));
+      }
+    }
+  }
+  return lines.join('\n');
 }
 
 function renderHttpResult(toolName: string, result: Record<string, unknown>): void {
@@ -113,29 +119,19 @@ function renderHttpResult(toolName: string, result: Record<string, unknown>): vo
   }
 
   const bodySize = body ? formatBytes(Buffer.byteLength(body, 'utf-8')) : '0 B';
-
-  if (verbose) {
-    // Verbose: show full response
-    console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(`status=${status ?? '?'}, body=${bodySize}`));
-    if (body) console.log(chalk.dim(body));
-    return;
-  }
-
-  const width = getConsoleWidth();
-  const maxChars = width * 2;
-
-  let summary = chalk.cyan(`[tool:result] ${toolName}`) + chalk.dim(` status=${status ?? '?'}, body=${bodySize}`);
+  console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(`status=${status ?? '?'}, body=${bodySize}`));
 
   if (body && body.length > 0) {
-    const { truncated, isTruncated, totalLines } = truncateText(body, maxChars);
-    const preview = truncated.replace(/\n/g, '\\n');
-    summary += '\n' + chalk.dim(preview);
-    if (isTruncated) {
-      summary += chalk.dim(`... [${totalLines} lines, ${bodySize} total]`);
+    const width = getConsoleWidth();
+    const maxLines = verbose ? Infinity : 30;
+    const wrapped = wrapText(body, width - 2);
+    const lines = wrapped.split('\n');
+    const display = lines.slice(0, maxLines);
+    console.log(chalk.dim(display.join('\n')));
+    if (lines.length > maxLines) {
+      console.log(chalk.dim(`... [${lines.length - maxLines} more lines]`));
     }
   }
-
-  console.log(summary);
 }
 
 export function renderToolResult(toolName: string, result: unknown): void {
@@ -195,23 +191,16 @@ export function renderToolResult(toolName: string, result: unknown): void {
     return;
   }
 
-  const json = JSON.stringify(result);
-
-  if (verbose) {
-    // Verbose: show full JSON
-    console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(json));
-    return;
-  }
-
-  // Normal: truncate if too long
+  const json = JSON.stringify(result, null, 2);
   const width = getConsoleWidth();
-  const maxChars = width * 2;
-
-  if (json.length <= maxChars) {
-    console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(json));
-  } else {
-    const truncated = json.slice(0, maxChars);
-    console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(truncated + `... [${formatBytes(json.length)} total]`));
+  const maxLines = verbose ? Infinity : 20;
+  const wrapped = wrapText(json, width - 2);
+  const lines = wrapped.split('\n');
+  const display = lines.slice(0, maxLines);
+  console.log(chalk.cyan(`[tool:result] ${toolName}`));
+  console.log(chalk.dim(display.join('\n')));
+  if (lines.length > maxLines) {
+    console.log(chalk.dim(`... [${lines.length - maxLines} more lines]`));
   }
 }
 
