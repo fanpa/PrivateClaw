@@ -27,6 +27,7 @@ export interface RunAgentTurnOptions {
   onReload?: () => Promise<string | null>;
   onReflecting?: (loop: number) => void;
   onReflectionDone?: (changed: boolean) => void;
+  generateDescription?: (content: string) => Promise<string>;
 }
 
 export interface AgentTurnResult {
@@ -105,6 +106,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     specialists: options.specialists,
     onReload: options.onReload,
     onApproval: options.onToolApproval,
+    generateDescription: options.generateDescription,
   });
 
   let currentMessages: ModelMessage[] = applySliding([...messages], maxHistory);

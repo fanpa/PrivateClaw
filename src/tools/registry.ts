@@ -1,3 +1,4 @@
+import { generateText } from 'ai';
 import { fileReadTool } from './file-read.js';
 import { fileWriteTool } from './file-write.js';
 import { fileUpdateTool } from './file-update.js';
@@ -14,6 +15,7 @@ import { createDelegateTool } from './delegate.js';
 import type { SpecialistEntry } from './delegate.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
+import { getModel } from '../provider/registry.js';
 
 export interface BuiltinToolsOptions {
   fetchFn?: typeof globalThis.fetch;
@@ -26,6 +28,7 @@ export interface BuiltinToolsOptions {
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
   allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
+  generateDescription?: (content: string) => Promise<string>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -82,7 +85,7 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     tools[createSkill.name] = createSkill.tool;
     const setHeader = createSetHeaderTool(options.configPath);
     tools[setHeader.name] = setHeader.tool;
-    const syncSkills = createSyncSkillsTool(options.configPath, options.skillsDir ?? './skills');
+    const syncSkills = createSyncSkillsTool(options.configPath, options.skillsDir ?? './skills', options.generateDescription);
     tools[syncSkills.name] = syncSkills.tool;
   }
 

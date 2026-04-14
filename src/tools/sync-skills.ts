@@ -31,7 +31,12 @@ function extractDescription(skillPath: string, fallback: string): string {
   return fallback;
 }
 
-function doSync(configPath: string, skillsDir: string, removeOrphaned: boolean): SyncResult {
+async function doSync(
+  configPath: string,
+  skillsDir: string,
+  removeOrphaned: boolean,
+  generateDescription?: (content: string) => Promise<string>,
+): Promise<SyncResult> {
   const raw = readFileSync(configPath, 'utf-8');
   const config = JSON.parse(raw);
   const skills: Array<{ name: string; description: string }> = config.skills ?? [];
@@ -61,7 +66,15 @@ function doSync(configPath: string, skillsDir: string, removeOrphaned: boolean):
   for (const name of dirNames) {
     if (!registeredNames.has(name)) {
       const skillPath = join(resolvedDir, name, 'skill.md');
-      const description = extractDescription(skillPath, name);
+      let description = extractDescription(skillPath, name);
+      if (generateDescription) {
+        try {
+          const content = readFileSync(skillPath, 'utf-8');
+          description = await generateDescription(content.slice(0, 3000));
+        } catch {
+          // fall back to text-extracted description
+        }
+      }
       skills.push({ name, description });
       added.push(name);
     }
@@ -98,7 +111,11 @@ function doSync(configPath: string, skillsDir: string, removeOrphaned: boolean):
   return { added, orphaned: removeOrphaned ? [] : orphaned, removed, message: parts.join(' | ') };
 }
 
-export function createSyncSkillsTool(configPath: string, skillsDir: string) {
+export function createSyncSkillsTool(
+  configPath: string,
+  skillsDir: string,
+  generateDescription?: (content: string) => Promise<string>,
+) {
   return {
     name: 'sync_skills' as const,
     description: 'Synchronize skills between the skills directory and config file.',
@@ -107,11 +124,11 @@ export function createSyncSkillsTool(configPath: string, skillsDir: string) {
         'Scan the skills directory and compare with config. New skills in the directory are registered. Skills in config but missing from the directory are reported as orphaned. Set removeOrphaned=true to delete orphaned entries (ask the user first).',
       inputSchema: parameters,
       execute: async (args: z.infer<typeof parameters>): Promise<SyncResult> => {
-        return doSync(configPath, skillsDir, args.removeOrphaned ?? false);
+        return doSync(configPath, skillsDir, args.removeOrphaned ?? false, generateDescription);
       },
     },
     execute: async (params: { removeOrphaned?: boolean }): Promise<SyncResult> => {
-      return doSync(configPath, skillsDir, params.removeOrphaned ?? false);
+      return doSync(configPath, skillsDir, params.removeOrphaned ?? false, generateDescription);
     },
   };
 }

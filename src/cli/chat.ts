@@ -1,8 +1,9 @@
 import * as readline from 'node:readline';
+import { generateText } from 'ai';
 import type { ModelMessage } from 'ai';
 import { runAgentTurn } from '../agent/loop.js';
 import { SessionRepository } from '../session/repository.js';
-import { getProviderName } from '../provider/registry.js';
+import { getProviderName, getModel } from '../provider/registry.js';
 import { loadConfig } from '../config/loader.js';
 import { initFromConfig } from './app.js';
 import { ToolApprovalManager } from '../approval/manager.js';
@@ -91,6 +92,22 @@ export interface ChatOptions {
   skillsDir?: string;
   sessionDir?: string;
   specialists?: import('../tools/delegate.js').SpecialistEntry[];
+  generateDescription?: (content: string) => Promise<string>;
+}
+
+function buildGenerateDescription(): (content: string) => Promise<string> {
+  return async (content: string): Promise<string> => {
+    const { text } = await generateText({
+      model: getModel(),
+      messages: [
+        {
+          role: 'user',
+          content: `Summarize the following skill document in one concise sentence. Focus on WHEN an AI assistant should use this skill and what workflow it provides. Output only the summary sentence, nothing else.\n\n${content}`,
+        },
+      ],
+    });
+    return text.trim();
+  };
 }
 
 export async function startChat(
@@ -100,7 +117,7 @@ export async function startChat(
   const approvalManager = new ToolApprovalManager();
 
   // Mutable options that can be reloaded
-  let currentOptions = { ...options };
+  let currentOptions = { ...options, generateDescription: options.generateDescription ?? buildGenerateDescription() };
 
   const repo = new SessionRepository(currentOptions.sessionDir ?? './.privateclaw/sessions');
 
@@ -207,6 +224,7 @@ export async function startChat(
           skillsDir: currentOptions.skillsDir,
           configPath: currentOptions.configPath,
           specialists: currentOptions.specialists,
+          generateDescription: currentOptions.generateDescription,
           onReload: async () => {
             if (!currentOptions.configPath) return 'Config path not available.';
             try {
