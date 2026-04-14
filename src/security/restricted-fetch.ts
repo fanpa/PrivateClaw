@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { normalize } from 'node:path';
 import { isDomainAllowed } from './domain-guard.js';
 
 export interface RestrictedFetchOptions {
@@ -11,7 +12,17 @@ export function createRestrictedFetch(
   options: RestrictedFetchOptions = {},
 ): typeof globalThis.fetch {
   // Read CA cert once at setup time so missing files fail fast
-  const ca = options.tlsCaPath ? readFileSync(options.tlsCaPath) : undefined;
+  let ca: string | undefined;
+  if (options.tlsCaPath) {
+    const normalizedPath = normalize(options.tlsCaPath);
+    try {
+      ca = readFileSync(normalizedPath, 'utf-8');
+    } catch (err) {
+      throw new Error(
+        `Failed to read TLS CA certificate from "${normalizedPath}": ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 
   return async (input, init?) => {
     const url = new URL(typeof input === 'string' ? input : (input as Request).url);
