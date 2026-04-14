@@ -252,8 +252,20 @@ export async function startChat(
           renderMarkdownResponse(result.text);
         }
 
+        // Save new messages incrementally (user message + response)
+        repo.appendMessages(session!.id, [
+          { role: 'user' as const, content: trimmed },
+          ...result.responseMessages,
+        ]);
+
+        // Add response to in-memory array
         messages.push(...result.responseMessages);
-        repo.updateMessages(session!.id, messages);
+
+        // Trim in-memory messages to sliding window to prevent unbounded growth
+        const maxHistory = currentOptions.maxHistoryMessages ?? 20;
+        if (maxHistory > 0 && messages.length > maxHistory) {
+          messages.splice(0, messages.length - maxHistory);
+        }
       } catch (err) {
         renderErrorWithStack(err);
       }
