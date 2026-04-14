@@ -10,7 +10,9 @@ import { SessionRepository } from '../session/repository.js';
 import { startChat } from './chat.js';
 import { renderError, renderSystemMessage, setVerbose } from './renderer.js';
 import { executeRun } from './run.js';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { executeAuth } from './auth.js';
 import { executeInit, executeInteractiveInit, autoRegisterSkills } from './init.js';
 
@@ -50,13 +52,30 @@ export function initFromConfig(config: Config): typeof globalThis.fetch {
   return restrictedFetch;
 }
 
+function getVersion(): string {
+  try {
+    const thisDir = dirname(fileURLToPath(import.meta.url));
+    // Walk up to find package.json (works from src/cli/ and dist/src/cli/)
+    for (let dir = thisDir; dir !== dirname(dir); dir = dirname(dir)) {
+      const pkgPath = join(dir, 'package.json');
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+        if (pkg.name === 'privateclaw') return pkg.version;
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return '0.0.0';
+}
+
 export function createApp(): Command {
   const program = new Command();
 
   program
     .name('privateclaw')
     .description('A self-hosted AI agent CLI')
-    .version('0.1.0');
+    .version(getVersion());
 
   program
     .command('init')
