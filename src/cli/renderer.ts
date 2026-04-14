@@ -2,6 +2,20 @@ import chalk from 'chalk';
 import { renderMarkdown } from './markdown.js';
 
 let verbose = false;
+let pendingLineCount = 0;
+
+function clearPendingLines(): void {
+  if (pendingLineCount > 0) {
+    for (let i = 0; i < pendingLineCount; i++) {
+      process.stdout.write('\x1b[A\x1b[K'); // move up + clear line
+    }
+    pendingLineCount = 0;
+  }
+}
+
+function clearCurrentLine(): void {
+  process.stdout.write('\r\x1b[K');
+}
 
 export function setVerbose(v: boolean): void {
   verbose = v;
@@ -81,7 +95,9 @@ function describeToolCall(toolName: string, args: unknown): string {
 }
 
 export function renderToolCall(toolName: string, args: unknown): void {
-  console.log(chalk.yellow(`\n▶ ${describeToolCall(toolName, args)}`));
+  clearPendingLines();
+  process.stdout.write(chalk.yellow(`\n▶ ${describeToolCall(toolName, args)}`));
+  pendingLineCount = 1;
 }
 
 function getConsoleWidth(): number {
@@ -135,6 +151,7 @@ function renderHttpResult(toolName: string, result: Record<string, unknown>): vo
 }
 
 export function renderToolResult(toolName: string, result: unknown): void {
+  clearPendingLines();
   const res = result as Record<string, unknown> | undefined;
 
   // use_skill: show only skill name, suppress full skill.md content
@@ -206,19 +223,21 @@ export function renderToolResult(toolName: string, result: unknown): void {
 
 export function renderReflecting(loop: number): void {
   if (verbose) {
-    console.log(chalk.magenta(`\n[reflecting] loop ${loop}...`));
+    console.log(chalk.magenta(`\n[thinking] loop ${loop}...`));
   } else {
-    process.stdout.write(chalk.magenta(`\n[reflecting...] `));
+    process.stdout.write(chalk.magenta(`\nthinking...`));
   }
 }
 
 export function renderReflectionDone(changed: boolean): void {
   if (verbose) {
-    console.log(chalk.magenta(`[reflection] ${changed ? 'response updated' : 'no changes needed'}`));
-  } else if (changed) {
-    console.log(chalk.magenta('[updated]'));
+    console.log(chalk.magenta(`[thinking] ${changed ? 'response updated' : 'done'}`));
   } else {
-    console.log(chalk.magenta('[ok]'));
+    clearCurrentLine();
+    if (changed) {
+      process.stdout.write(chalk.magenta('thinking... revised\n'));
+    }
+    // If not changed, just clear the "thinking..." line silently
   }
 }
 
@@ -232,8 +251,10 @@ export function renderSessionInfo(sessionId: string, providerName: string): void
 }
 
 export function renderApprovalPrompt(toolName: string, args: unknown): void {
+  clearPendingLines();
   console.log(chalk.bold.yellow(`\n⚠ ${describeToolCall(toolName, args)}`));
   console.log(chalk.yellow('  [y] Allow once  [a] Allow always  [n] Deny'));
+  pendingLineCount = 3; // blank line + description + options
 }
 
 export function renderMarkdownResponse(text: string): void {
@@ -242,11 +263,14 @@ export function renderMarkdownResponse(text: string): void {
 }
 
 export function renderApprovalResult(toolName: string, decision: string): void {
+  // Clear the approval prompt (including user's input line)
+  clearPendingLines();
+  // Also clear the line where user typed their answer
+  clearCurrentLine();
+
   if (decision === 'deny') {
-    console.log(chalk.red(`✗ "${toolName}" denied. Stopping agent.`));
-  } else if (decision === 'allow_always') {
-    console.log(chalk.green(`✓ "${toolName}" allowed permanently.`));
+    console.log(chalk.red(`✗ "${toolName}" denied.`));
   } else {
-    console.log(chalk.green(`✓ "${toolName}" allowed once.`));
+    console.log(chalk.green(`✓ ${toolName}`));
   }
 }
