@@ -419,7 +419,17 @@ export function renderSessionInfo(sessionId: string, providerName: string): void
   console.log(chalk.dim(`Session: ${sessionId} | Provider: ${providerName}${verbose ? ' | Verbose: ON' : ''}\n`));
 }
 
+/** Strip LLM-generated fake tool call syntax (e.g. <tool_code>...</tool_code>) from text */
+function stripFakeToolCalls(text: string): string {
+  return text
+    .replace(/<tool_code>[\s\S]*?<\/tool_code>/g, '')
+    .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '')
+    .trim();
+}
+
 export function renderMarkdownResponse(text: string): void {
-  const formatted = renderMarkdown(text);
+  const cleaned = stripFakeToolCalls(text);
+  if (!cleaned) return;
+  const formatted = renderMarkdown(cleaned);
   process.stdout.write(formatted);
 }
