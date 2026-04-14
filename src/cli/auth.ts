@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import { existsSync } from 'node:fs';
 
 export interface AuthOptions {
   url: string;
@@ -19,8 +20,27 @@ export interface AuthResult {
 }
 
 const EDGE_PATH_WIN = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+const CHROME_WSL_PATH = '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe';
+const EDGE_WSL_PATH = '/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+
+function isWSL(): boolean {
+  return !!process.env.WSL_DISTRO_NAME || !!process.env.WSL_INTEROP;
+}
 
 async function launchBrowser(headless: boolean) {
+  if (isWSL()) {
+    // In WSL, use Windows Chrome/Edge via WSL interop so no X server is needed
+    if (existsSync(CHROME_WSL_PATH)) {
+      return puppeteer.launch({ executablePath: CHROME_WSL_PATH, headless, args: ['--no-sandbox'] });
+    }
+    if (existsSync(EDGE_WSL_PATH)) {
+      return puppeteer.launch({ executablePath: EDGE_WSL_PATH, headless, args: ['--no-sandbox'] });
+    }
+    throw new Error(
+      'No browser found for WSL. Install Google Chrome or Microsoft Edge on Windows, ' +
+      'or run with xvfb-run if a Linux browser is installed.',
+    );
+  }
   if (process.platform === 'win32') {
     try {
       return await puppeteer.launch({ channel: 'chrome', headless });
