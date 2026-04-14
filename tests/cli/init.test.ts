@@ -25,7 +25,8 @@ describe('executeInit', () => {
 
   it('creates default skill files', () => {
     executeInit(TEST_CONFIG, TEST_SKILLS);
-    expect(existsSync(join(TEST_SKILLS, 'failure-analysis', 'skill.md'))).toBe(true);
+    expect(existsSync(join(TEST_SKILLS, 'drm-document-reader', 'skill.md'))).toBe(true);
+    expect(existsSync(join(TEST_SKILLS, 'ocr', 'skill.md'))).toBe(true);
   });
 
   it('does not throw EEXIST when config path has no directory component (dirname = .)', () => {
@@ -54,11 +55,11 @@ describe('executeInit', () => {
   });
 
   it('does not overwrite existing skill files', () => {
-    mkdirSync(join(TEST_SKILLS, 'failure-analysis'), { recursive: true });
-    writeFileSync(join(TEST_SKILLS, 'failure-analysis', 'skill.md'), 'custom content');
+    mkdirSync(join(TEST_SKILLS, 'drm-document-reader'), { recursive: true });
+    writeFileSync(join(TEST_SKILLS, 'drm-document-reader', 'skill.md'), 'custom content');
 
     executeInit(TEST_CONFIG, TEST_SKILLS);
-    expect(readFileSync(join(TEST_SKILLS, 'failure-analysis', 'skill.md'), 'utf-8')).toBe('custom content');
+    expect(readFileSync(join(TEST_SKILLS, 'drm-document-reader', 'skill.md'), 'utf-8')).toBe('custom content');
   });
 });
 

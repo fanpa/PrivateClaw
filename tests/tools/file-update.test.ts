@@ -23,7 +23,7 @@ describe('fileUpdateTool', () => {
     const filePath = join(TEST_DIR, 'existing.txt');
     writeFileSync(filePath, 'original content');
     const result = await fileUpdateTool.execute({ filePath, content: 'updated content' });
-    expect(result).toContain('Updated');
+    expect(result.message).toContain('Updated');
     expect(readFileSync(filePath, 'utf-8')).toBe('updated content');
   });
 
@@ -37,7 +37,29 @@ describe('fileUpdateTool', () => {
     writeFileSync(filePath, 'old');
     const content = 'new content here';
     const result = await fileUpdateTool.execute({ filePath, content });
-    expect(result).toContain(String(content.length));
+    expect(result.message).toContain(String(content.length));
+  });
+
+  it('returns diff information when content changes', async () => {
+    const filePath = join(TEST_DIR, 'diff-test.txt');
+    writeFileSync(filePath, 'line1\nline2\nline3\n');
+    const result = await fileUpdateTool.execute({
+      filePath,
+      content: 'line1\nmodified\nline3\nnewline\n',
+    });
+    expect(result.diff).toContain('-line2');
+    expect(result.diff).toContain('+modified');
+    expect(result.diff).toContain('+newline');
+  });
+
+  it('returns empty diff when content is unchanged', async () => {
+    const filePath = join(TEST_DIR, 'nodiff.txt');
+    writeFileSync(filePath, 'same content');
+    const result = await fileUpdateTool.execute({
+      filePath,
+      content: 'same content',
+    });
+    expect(result.diff).toBe('');
   });
 
   describe('tool object (AI SDK path)', () => {
@@ -71,7 +93,7 @@ describe('fileUpdateTool', () => {
         toolCallId: 'test',
         messages: [],
       } as never);
-      expect(result).toContain('Updated');
+      expect(result.message).toContain('Updated');
       expect(readFileSync(filePath, 'utf-8')).toBe('sdk update');
     });
 
