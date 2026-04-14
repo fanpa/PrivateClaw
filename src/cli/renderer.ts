@@ -233,11 +233,8 @@ export function renderReflectionDone(changed: boolean): void {
   if (verbose) {
     console.log(chalk.magenta(`[thinking] ${changed ? 'response updated' : 'done'}`));
   } else {
+    // Clear the "thinking..." line — result will be printed directly after
     clearCurrentLine();
-    if (changed) {
-      process.stdout.write(chalk.magenta('thinking... revised\n'));
-    }
-    // If not changed, just clear the "thinking..." line silently
   }
 }
 
