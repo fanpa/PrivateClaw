@@ -2,15 +2,13 @@ import chalk from 'chalk';
 import { renderMarkdown } from './markdown.js';
 
 let verbose = false;
-let pendingLineCount = 0;
 let thinkingTimer: ReturnType<typeof setInterval> | null = null;
+let toolCallPending = false; // tracks if a transient tool-call line is showing
 
-function clearPendingLines(): void {
-  if (pendingLineCount > 0) {
-    for (let i = 0; i < pendingLineCount; i++) {
-      process.stdout.write('\x1b[A\x1b[K'); // move up + clear line
-    }
-    pendingLineCount = 0;
+/** Move cursor up N lines and clear each */
+function eraseLines(count: number): void {
+  for (let i = 0; i < count; i++) {
+    process.stdout.write('\x1b[A\x1b[K');
   }
 }
 
@@ -95,10 +93,18 @@ function describeToolCall(toolName: string, args: unknown): string {
   }
 }
 
+/**
+ * Tool call — shown as a transient status line.
+ * Will be replaced by the tool result or approval prompt.
+ */
 export function renderToolCall(toolName: string, args: unknown): void {
-  clearPendingLines();
+  if (verbose) {
+    console.log(chalk.yellow(`\n▶ ${describeToolCall(toolName, args)}`));
+    return;
+  }
+  // Non-verbose: show transient line (no newline at end)
   process.stdout.write(chalk.yellow(`\n▶ ${describeToolCall(toolName, args)}`));
-  pendingLineCount = 1;
+  toolCallPending = true;
 }
 
 function getConsoleWidth(): number {
@@ -151,8 +157,17 @@ function renderHttpResult(toolName: string, result: Record<string, unknown>): vo
   }
 }
 
+/**
+ * Tool result — replaces the transient tool-call line (in non-verbose mode).
+ */
 export function renderToolResult(toolName: string, result: unknown): void {
-  clearPendingLines();
+  // Clear the transient tool-call line if present
+  if (!verbose && toolCallPending) {
+    clearCurrentLine();
+    eraseLines(1); // erase the "\n▶ ..." line
+    toolCallPending = false;
+  }
+
   const res = result as Record<string, unknown> | undefined;
 
   // use_skill: show only skill name, suppress full skill.md content
@@ -222,11 +237,12 @@ export function renderToolResult(toolName: string, result: unknown): void {
   }
 }
 
+// --- Thinking animation ---
+
 function startThinkingAnimation(): void {
   stopThinkingAnimation();
   const frames = ['.', '..', '...', '..'];
   let i = 0;
-  // Show initial frame immediately
   process.stdout.write(chalk.magenta(`thinking ${frames[0]}`));
   thinkingTimer = setInterval(() => {
     i = (i + 1) % frames.length;
@@ -263,6 +279,42 @@ export function renderReflectionDone(changed: boolean): void {
   }
 }
 
+// --- Approval ---
+
+/**
+ * Show approval prompt — this MUST remain visible until the user answers.
+ * No pendingLineCount tracking here; clearing is handled by renderApprovalResult.
+ */
+export function renderApprovalPrompt(toolName: string, args: unknown): void {
+  // If a transient tool-call line is showing, clear it first
+  if (!verbose && toolCallPending) {
+    clearCurrentLine();
+    eraseLines(1);
+    toolCallPending = false;
+  }
+  console.log(chalk.bold.yellow(`\n⚠ ${describeToolCall(toolName, args)}`));
+  console.log(chalk.yellow('  [y] Allow once  [a] Allow always  [n] Deny'));
+}
+
+/**
+ * After user answers, clear the prompt and show a one-line summary.
+ */
+export function renderApprovalResult(toolName: string, decision: string): void {
+  if (!verbose) {
+    // Erase: user input line (current) + options line + description line + blank line = 4 lines up
+    clearCurrentLine();
+    eraseLines(3);
+  }
+
+  if (decision === 'deny') {
+    console.log(chalk.red(`✗ "${toolName}" denied.`));
+  } else {
+    console.log(chalk.green(`✓ ${toolName}`));
+  }
+}
+
+// --- Other ---
+
 export function renderWelcome(): void {
   console.log(chalk.bold('\nPrivateClaw'));
   console.log(chalk.dim('Type your message and press Enter. Type /help for commands.\n'));
@@ -272,27 +324,7 @@ export function renderSessionInfo(sessionId: string, providerName: string): void
   console.log(chalk.dim(`Session: ${sessionId} | Provider: ${providerName}${verbose ? ' | Verbose: ON' : ''}\n`));
 }
 
-export function renderApprovalPrompt(toolName: string, args: unknown): void {
-  clearPendingLines();
-  console.log(chalk.bold.yellow(`\n⚠ ${describeToolCall(toolName, args)}`));
-  console.log(chalk.yellow('  [y] Allow once  [a] Allow always  [n] Deny'));
-  pendingLineCount = 3; // blank line + description + options
-}
-
 export function renderMarkdownResponse(text: string): void {
   const formatted = renderMarkdown(text);
   process.stdout.write(formatted);
-}
-
-export function renderApprovalResult(toolName: string, decision: string): void {
-  // Clear the approval prompt (including user's input line)
-  clearPendingLines();
-  // Also clear the line where user typed their answer
-  clearCurrentLine();
-
-  if (decision === 'deny') {
-    console.log(chalk.red(`✗ "${toolName}" denied.`));
-  } else {
-    console.log(chalk.green(`✓ ${toolName}`));
-  }
 }
