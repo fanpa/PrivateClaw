@@ -174,6 +174,27 @@ export function renderToolResult(toolName: string, result: unknown): void {
     return;
   }
 
+  // shell_exec: show stdout/stderr as plain text, not JSON
+  if (toolName === 'shell_exec') {
+    const exitCode = res?.exitCode as number | undefined;
+    const stdout = (res?.stdout as string | undefined) ?? '';
+    const stderr = (res?.stderr as string | undefined) ?? '';
+    const error = res?.error as string | undefined;
+
+    const exitLabel = exitCode === 0 ? chalk.green(`exit=${exitCode}`) : chalk.red(`exit=${exitCode ?? '?'}`);
+    console.log(chalk.cyan(`[tool:result] ${toolName}`), exitLabel);
+    if (error) {
+      console.log(chalk.red(error));
+    }
+    if (stdout) {
+      process.stdout.write(chalk.dim(stdout.endsWith('\n') ? stdout : stdout + '\n'));
+    }
+    if (stderr) {
+      process.stderr.write(chalk.yellow(stderr.endsWith('\n') ? stderr : stderr + '\n'));
+    }
+    return;
+  }
+
   const json = JSON.stringify(result);
 
   if (verbose) {

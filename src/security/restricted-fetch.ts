@@ -22,6 +22,10 @@ export function createRestrictedFetch(
         `Failed to read TLS CA certificate from "${normalizedPath}": ${err instanceof Error ? err.message : String(err)}`,
       );
     }
+    // Set NODE_EXTRA_CA_CERTS so all HTTPS connections in this process trust the custom CA,
+    // including connections made by the AI SDK and other native TLS code (not just fetch).
+    // Must be set before any TLS connections are established.
+    process.env.NODE_EXTRA_CA_CERTS = normalizedPath;
   }
 
   return async (input, init?) => {
