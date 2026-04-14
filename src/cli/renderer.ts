@@ -142,18 +142,17 @@ function renderHttpResult(toolName: string, result: Record<string, unknown>): vo
   }
 
   const bodySize = body ? formatBytes(Buffer.byteLength(body, 'utf-8')) : '0 B';
-  console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(`status=${status ?? '?'}, body=${bodySize}`));
 
+  if (!verbose) {
+    console.log(chalk.cyan(`✓ ${toolName}`), chalk.dim(`status=${status ?? '?'}, ${bodySize}`));
+    return;
+  }
+
+  console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(`status=${status ?? '?'}, body=${bodySize}`));
   if (body && body.length > 0) {
     const width = getConsoleWidth();
-    const maxLines = verbose ? Infinity : 30;
     const wrapped = wrapText(body, width - 2);
-    const lines = wrapped.split('\n');
-    const display = lines.slice(0, maxLines);
-    console.log(chalk.dim(display.join('\n')));
-    if (lines.length > maxLines) {
-      console.log(chalk.dim(`... [${lines.length - maxLines} more lines]`));
-    }
+    console.log(chalk.dim(wrapped));
   }
 }
 
@@ -170,20 +169,24 @@ export function renderToolResult(toolName: string, result: unknown): void {
 
   const res = result as Record<string, unknown> | undefined;
 
-  // use_skill: show only skill name, suppress full skill.md content
+  // use_skill: compact summary
   if (toolName === 'use_skill') {
     if (res?.error) {
-      console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.red(String(res.error)));
+      console.log(chalk.cyan(`✓ ${toolName}`), chalk.red(String(res.error)));
     } else {
-      console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim('skill loaded'));
+      console.log(chalk.cyan(`✓ ${toolName}`), chalk.dim('skill loaded'));
     }
     return;
   }
 
-  // file_update: show colored diff
+  // file_update: show colored diff (verbose only)
   if (toolName === 'file_update') {
     const message = res?.message as string | undefined;
     const diff = res?.diff as string | undefined;
+    if (!verbose) {
+      console.log(chalk.cyan(`✓ ${toolName}`), chalk.dim(message ?? ''));
+      return;
+    }
     console.log(chalk.cyan(`[tool:result] ${toolName}`), chalk.dim(message ?? ''));
     if (diff) {
       for (const line of diff.split('\n')) {
@@ -203,12 +206,23 @@ export function renderToolResult(toolName: string, result: unknown): void {
     return;
   }
 
-  // shell_exec: show stdout/stderr as plain text, not JSON
+  // shell_exec
   if (toolName === 'shell_exec') {
     const exitCode = res?.exitCode as number | undefined;
     const stdout = (res?.stdout as string | undefined) ?? '';
     const stderr = (res?.stderr as string | undefined) ?? '';
     const error = res?.error as string | undefined;
+
+    if (!verbose) {
+      const exitLabel = exitCode === 0 ? chalk.green('ok') : chalk.red(`exit=${exitCode ?? '?'}`);
+      const preview = (error || stderr || stdout).split('\n')[0].trim();
+      const width = getConsoleWidth();
+      const prefix = `✓ ${toolName} ${exitLabel} `;
+      const maxPreview = width - prefix.length - 4;
+      const truncated = preview.length > maxPreview ? preview.slice(0, maxPreview) + '...' : preview;
+      console.log(chalk.cyan(`✓ ${toolName}`), exitLabel, chalk.dim(truncated));
+      return;
+    }
 
     const exitLabel = exitCode === 0 ? chalk.green(`exit=${exitCode}`) : chalk.red(`exit=${exitCode ?? '?'}`);
     console.log(chalk.cyan(`[tool:result] ${toolName}`), exitLabel);
@@ -224,17 +238,22 @@ export function renderToolResult(toolName: string, result: unknown): void {
     return;
   }
 
+  // Generic fallback
+  if (!verbose) {
+    const json = JSON.stringify(result);
+    const width = getConsoleWidth();
+    const prefix = `✓ ${toolName} `;
+    const maxLen = width - prefix.length - 4;
+    const truncated = json.length > maxLen ? json.slice(0, maxLen) + '...' : json;
+    console.log(chalk.cyan(`✓ ${toolName}`), chalk.dim(truncated));
+    return;
+  }
+
   const json = JSON.stringify(result, null, 2);
   const width = getConsoleWidth();
-  const maxLines = verbose ? Infinity : 20;
   const wrapped = wrapText(json, width - 2);
-  const lines = wrapped.split('\n');
-  const display = lines.slice(0, maxLines);
   console.log(chalk.cyan(`[tool:result] ${toolName}`));
-  console.log(chalk.dim(display.join('\n')));
-  if (lines.length > maxLines) {
-    console.log(chalk.dim(`... [${lines.length - maxLines} more lines]`));
-  }
+  console.log(chalk.dim(wrapped));
 }
 
 // --- Thinking animation ---
