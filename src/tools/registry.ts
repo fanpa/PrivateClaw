@@ -1,4 +1,4 @@
-import { fileReadTool } from './file-read.js';
+import { createFileReadTool } from './file-read.js';
 import { fileWriteTool } from './file-write.js';
 import { fileUpdateTool } from './file-update.js';
 import { createShellExecTool } from './shell-exec.js';
@@ -59,9 +59,10 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
   const webFetch = createWebFetchTool(f);
   const apiCall = createApiCallTool(f, options.defaultHeaders ?? {});
   const shellExec = createShellExecTool(options.allowedCommands ?? []);
+  const fileRead = createFileReadTool(options.skillsDir ? [options.skillsDir] : []);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools: Record<string, any> = {
-    [fileReadTool.name]: fileReadTool.tool,
+    [fileRead.name]: fileRead.tool,
     [fileWriteTool.name]: fileWriteTool.tool,
     [fileUpdateTool.name]: fileUpdateTool.tool,
     [shellExec.name]: shellExec.tool,
