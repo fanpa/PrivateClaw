@@ -1,4 +1,3 @@
-import { generateText } from 'ai';
 import { fileReadTool } from './file-read.js';
 import { fileWriteTool } from './file-write.js';
 import { fileUpdateTool } from './file-update.js';
@@ -15,7 +14,6 @@ import { createDelegateTool } from './delegate.js';
 import type { SpecialistEntry } from './delegate.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
-import { getModel } from '../provider/registry.js';
 
 export interface BuiltinToolsOptions {
   fetchFn?: typeof globalThis.fetch;
