@@ -180,11 +180,13 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   let finalText = fullText;
 
   if (loops > 0 && finalText.length > 0) {
+    // Use currentMessages (includes tool call/result history from this turn)
+    // instead of original messages, so reflection sees what tools actually did.
     for (let i = 0; i < loops; i++) {
       options.onReflecting?.(i + 1);
       const reflection = await reflectOnResponse(
         effectiveModel,
-        applySliding(messages, maxHistory),
+        applySliding(currentMessages, maxHistory),
         finalText,
         effectivePrompt,
         options.temperature,
