@@ -89,6 +89,21 @@ export const DEFAULT_SYSTEM_PROMPT = buildSystemPrompt();
 
 export const DEFAULT_MAX_STEPS = 10;
 
+export const PRE_REFLECT_PROMPT = `You are a tool-call validator. The AI assistant is about to call a tool. Evaluate whether this is the correct choice.
+
+Check:
+1. Is there an available skill that should be used instead of this raw tool call?
+2. Are the parameters correct? (e.g. correct file path, valid URL, proper method)
+3. Is this tool appropriate for the task?
+
+If the tool call is appropriate, reply with: [PROCEED] followed by a brief one-sentence explanation of WHY this tool is being used (in the same language as the user's conversation).
+If not, reply with: [REJECT] followed by a brief reason.
+Examples:
+- [PROCEED] Jira API에서 이슈 목록을 조회합니다.
+- [PROCEED] Reading file to check current contents before modification.
+- [REJECT] A matching skill "jira-export" exists — use use_skill instead.
+- [REJECT] file path is relative — run pwd first to determine the absolute path.`;
+
 export const REFLECTION_PROMPT = `Review your previous response for accuracy and quality. Check the tool call results in the conversation above:
 - Does your response accurately reflect what the tools actually returned?
 - Did you ignore or contradict any tool results (e.g. claiming a file write failed when it succeeded)?

@@ -2,7 +2,8 @@ import { streamText, generateText, stepCountIs } from 'ai';
 import type { ModelMessage, LanguageModel } from 'ai';
 import { getModel, getRestrictedFetch } from '../provider/registry.js';
 import { getBuiltinTools } from '../tools/registry.js';
-import { buildSystemPrompt, DEFAULT_MAX_STEPS, REFLECTION_PROMPT } from './types.js';
+import { buildSystemPrompt, DEFAULT_MAX_STEPS, REFLECTION_PROMPT, PRE_REFLECT_PROMPT } from './types.js';
+import type { PreReflectResult } from '../tools/registry.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
 
@@ -25,6 +26,7 @@ export interface RunAgentTurnOptions {
   onToolResult?: (toolName: string, result: unknown) => void;
   onToolApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
   onReload?: () => Promise<string | null>;
+  onPreReflectExplanation?: (explanation: string) => void;
   onReflecting?: (loop: number) => void;
   onReflectionDone?: (changed: boolean) => void;
 }
@@ -94,6 +96,37 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   const loops = options.reflectionLoops ?? 0;
   const maxHistory = options.maxHistoryMessages ?? 0;
 
+  // Pre-reflection callback: validates tool calls before execution
+  const preReflectCallback = loops > 0
+    ? async (toolName: string, args: unknown): Promise<PreReflectResult> => {
+        const skillList = options.skills?.map((s) => `${s.name}: ${s.description}`).join('\n') ?? 'none';
+        try {
+          const result = await generateText({
+            model: effectiveModel,
+            system: PRE_REFLECT_PROMPT,
+            messages: [
+              {
+                role: 'user',
+                content: `Tool: ${toolName}\nArgs: ${JSON.stringify(args)}\n\nAvailable skills:\n${skillList}`,
+              },
+            ],
+            temperature: 0,
+          });
+          const text = result.text.trim();
+          if (text.startsWith('[REJECT]')) {
+            return { proceed: false, reason: text.slice('[REJECT]'.length).trim() };
+          }
+          if (text.startsWith('[PROCEED]')) {
+            return { proceed: true, explanation: text.slice('[PROCEED]'.length).trim() };
+          }
+          return { proceed: true };
+        } catch {
+          // If pre-reflection fails, proceed anyway
+          return { proceed: true };
+        }
+      }
+    : undefined;
+
   // Build tools once; reused across steps so approval callbacks stay consistent.
   const toolSet = getBuiltinTools({
     fetchFn: getRestrictedFetch(),
@@ -105,6 +138,8 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     specialists: options.specialists,
     onReload: options.onReload,
     onApproval: options.onToolApproval,
+    onPreReflect: preReflectCallback,
+    onPreReflectExplanation: options.onPreReflectExplanation,
     generateDescription: async (content: string) => {
       const result = await generateText({
         model: effectiveModel,

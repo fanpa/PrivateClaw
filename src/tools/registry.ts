@@ -15,6 +15,12 @@ import type { SpecialistEntry } from './delegate.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
 
+export interface PreReflectResult {
+  proceed: boolean;
+  reason?: string;
+  explanation?: string;
+}
+
 export interface BuiltinToolsOptions {
   fetchFn?: typeof globalThis.fetch;
   defaultHeaders?: Record<string, Record<string, string>>;
@@ -24,10 +30,17 @@ export interface BuiltinToolsOptions {
   specialists?: SpecialistEntry[];
   onReload?: () => Promise<string | null>;
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
+  onPreReflect?: (toolName: string, args: unknown) => Promise<PreReflectResult>;
+  onPreReflectExplanation?: (explanation: string) => void;
   allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
   generateDescription?: (content: string) => Promise<string>;
 }
+
+// Tools that skip pre-reflection (low-risk or meta tools)
+const SKIP_PRE_REFLECT = new Set([
+  'use_skill', 'reload_config', 'sync_skills', 'file_read',
+]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrapWithApproval(
@@ -36,6 +49,8 @@ function wrapWithApproval(
   tool: any,
   onApproval: BuiltinToolsOptions['onApproval'],
   onBeforeToolExecute: BuiltinToolsOptions['onBeforeToolExecute'],
+  onPreReflect: BuiltinToolsOptions['onPreReflect'],
+  onPreReflectExplanation: BuiltinToolsOptions['onPreReflectExplanation'],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   const originalExecute = tool.execute as (args: unknown, options: unknown) => Promise<unknown>;
@@ -43,6 +58,16 @@ function wrapWithApproval(
     ...tool,
     execute: async (args: unknown, executeOptions: unknown) => {
       await onBeforeToolExecute?.();
+      // Pre-reflection: validate tool choice before asking user for approval
+      if (onPreReflect && !SKIP_PRE_REFLECT.has(toolName)) {
+        const result = await onPreReflect(toolName, args);
+        if (!result.proceed) {
+          return { error: `Pre-reflection rejected: ${result.reason}. Reconsider your approach — check available skills or adjust parameters.` };
+        }
+        if (result.explanation && onPreReflectExplanation) {
+          onPreReflectExplanation(result.explanation);
+        }
+      }
       if (onApproval) {
         const decision = await onApproval(toolName, args);
         if (decision === 'deny') {
@@ -103,9 +128,9 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     tools[reloadConfig.name] = reloadConfig.tool;
   }
 
-  if (options.onApproval || options.onBeforeToolExecute) {
+  if (options.onApproval || options.onBeforeToolExecute || options.onPreReflect) {
     for (const name of Object.keys(tools)) {
-      tools[name] = wrapWithApproval(name, tools[name], options.onApproval, options.onBeforeToolExecute);
+      tools[name] = wrapWithApproval(name, tools[name], options.onApproval, options.onBeforeToolExecute, options.onPreReflect, options.onPreReflectExplanation);
     }
   }
 

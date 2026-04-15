@@ -99,6 +99,10 @@ function describeToolCall(toolName: string, args: unknown): string {
  * Tool call — shown as a transient status line.
  * Will be replaced by the tool result or approval prompt.
  */
+export function renderPreReflectExplanation(explanation: string): void {
+  console.log(chalk.dim(`\n${explanation}`));
+}
+
 export function renderToolCall(toolName: string, args: unknown): void {
   if (verbose) {
     console.log(chalk.yellow(`\n▶ ${describeToolCall(toolName, args)}`));
