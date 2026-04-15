@@ -15,6 +15,11 @@ import type { SpecialistEntry } from './delegate.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
 
+export interface PreReflectResult {
+  proceed: boolean;
+  message: string; // explanation if proceed, rejection reason if not
+}
+
 export interface BuiltinToolsOptions {
   fetchFn?: typeof globalThis.fetch;
   defaultHeaders?: Record<string, Record<string, string>>;
@@ -24,27 +29,44 @@ export interface BuiltinToolsOptions {
   specialists?: SpecialistEntry[];
   onReload?: () => Promise<string | null>;
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
+  onPreReflect?: (toolName: string, args: unknown) => Promise<PreReflectResult>;
   allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
   generateDescription?: (content: string) => Promise<string>;
 }
+
+// Tools that skip pre-reflection (low-risk or meta tools)
+const SKIP_PRE_REFLECT = new Set([
+  'use_skill', 'reload_config', 'sync_skills', 'file_read',
+]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrapWithApproval(
   toolName: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tool: any,
-  onApproval: BuiltinToolsOptions['onApproval'],
-  onBeforeToolExecute: BuiltinToolsOptions['onBeforeToolExecute'],
+  opts: {
+    onApproval?: BuiltinToolsOptions['onApproval'];
+    onBeforeToolExecute?: BuiltinToolsOptions['onBeforeToolExecute'];
+    onPreReflect?: BuiltinToolsOptions['onPreReflect'];
+  },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   const originalExecute = tool.execute as (args: unknown, options: unknown) => Promise<unknown>;
   return {
     ...tool,
     execute: async (args: unknown, executeOptions: unknown) => {
-      await onBeforeToolExecute?.();
-      if (onApproval) {
-        const decision = await onApproval(toolName, args);
+      await opts.onBeforeToolExecute?.();
+      // Pre-reflection: validate tool choice and show explanation
+      if (opts.onPreReflect && !SKIP_PRE_REFLECT.has(toolName)) {
+        const result = await opts.onPreReflect(toolName, args);
+        if (!result.proceed) {
+          return { error: `${result.message} Reconsider your approach.` };
+        }
+        // result.message is the explanation — displayed by the callback
+      }
+      if (opts.onApproval) {
+        const decision = await opts.onApproval(toolName, args);
         if (decision === 'deny') {
           return { error: 'Tool execution denied by user.' };
         }
@@ -103,9 +125,13 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     tools[reloadConfig.name] = reloadConfig.tool;
   }
 
-  if (options.onApproval || options.onBeforeToolExecute) {
+  if (options.onApproval || options.onBeforeToolExecute || options.onPreReflect) {
     for (const name of Object.keys(tools)) {
-      tools[name] = wrapWithApproval(name, tools[name], options.onApproval, options.onBeforeToolExecute);
+      tools[name] = wrapWithApproval(name, tools[name], {
+        onApproval: options.onApproval,
+        onBeforeToolExecute: options.onBeforeToolExecute,
+        onPreReflect: options.onPreReflect,
+      });
     }
   }
 

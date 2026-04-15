@@ -19,6 +19,7 @@ import {
   renderToolResult,
   renderApprovalPrompt,
   renderApprovalResult,
+  renderPreReflectExplanation,
   renderReflecting,
   renderReflectionDone,
   renderMarkdownResponse,
@@ -230,6 +231,7 @@ export async function startChat(
             }
           },
           onChunk: () => {},
+          onPreReflectExplanation: renderPreReflectExplanation,
           onReflecting: renderReflecting,
           onReflectionDone: renderReflectionDone,
           onToolCall: (name, args) => {
