@@ -96,7 +96,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   const loops = options.reflectionLoops ?? 0;
   const maxHistory = options.maxHistoryMessages ?? 0;
 
-  // Pre-reflection callback: validates tool calls before execution
+  // Pre-reflection callback: validates tool calls and generates explanation
   const preReflectCallback = loops > 0
     ? async (toolName: string, args: unknown): Promise<PreReflectResult> => {
         const skillList = options.skills?.map((s) => `${s.name}: ${s.description}`).join('\n') ?? 'none';
@@ -113,16 +113,14 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
             temperature: 0,
           });
           const text = result.text.trim();
-          if (text.startsWith('[REJECT]')) {
-            return { proceed: false, reason: text.slice('[REJECT]'.length).trim() };
+          if (text.startsWith('REJECT:')) {
+            return { proceed: false, message: text.slice('REJECT:'.length).trim() };
           }
-          if (text.startsWith('[PROCEED]')) {
-            return { proceed: true, explanation: text.slice('[PROCEED]'.length).trim() };
-          }
-          return { proceed: true };
+          // Valid explanation — show to user
+          options.onPreReflectExplanation?.(text);
+          return { proceed: true, message: text };
         } catch {
-          // If pre-reflection fails, proceed anyway
-          return { proceed: true };
+          return { proceed: true, message: '' };
         }
       }
     : undefined;
@@ -139,7 +137,6 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     onReload: options.onReload,
     onApproval: options.onToolApproval,
     onPreReflect: preReflectCallback,
-    onPreReflectExplanation: options.onPreReflectExplanation,
     generateDescription: async (content: string) => {
       const result = await generateText({
         model: effectiveModel,

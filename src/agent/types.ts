@@ -89,20 +89,21 @@ export const DEFAULT_SYSTEM_PROMPT = buildSystemPrompt();
 
 export const DEFAULT_MAX_STEPS = 10;
 
-export const PRE_REFLECT_PROMPT = `You are a tool-call validator. The AI assistant is about to call a tool. Evaluate whether this is the correct choice.
+export const PRE_REFLECT_PROMPT = `You are validating a tool call. The AI assistant is about to use a tool.
 
 Check:
-1. Is there an available skill that should be used instead of this raw tool call?
-2. Are the parameters correct? (e.g. correct file path, valid URL, proper method)
-3. Is this tool appropriate for the task?
+1. Is there an available skill that should be used instead?
+2. Are the parameters correct?
+3. Is this the right tool for the task?
 
-If the tool call is appropriate, reply with: [PROCEED] followed by a brief one-sentence explanation of WHY this tool is being used (in the same language as the user's conversation).
-If not, reply with: [REJECT] followed by a brief reason.
+If WRONG, reply: REJECT: (reason)
+If CORRECT, reply with a single sentence explaining what this tool call will do, in the user's language.
 Examples:
-- [PROCEED] Jira API에서 이슈 목록을 조회합니다.
-- [PROCEED] Reading file to check current contents before modification.
-- [REJECT] A matching skill "jira-export" exists — use use_skill instead.
-- [REJECT] file path is relative — run pwd first to determine the absolute path.`;
+- "Jira API에서 오늘 업데이트된 이슈를 조회합니다."
+- "파일 내용을 수정하기 위해 현재 내용을 확인합니다."
+- "REJECT: jira-export 스킬을 사용해야 합니다."
+- "REJECT: 상대 경로 사용 — 먼저 pwd로 현재 위치를 확인해야 합니다."`;
+
 
 export const REFLECTION_PROMPT = `Review your previous response for accuracy and quality. Check the tool call results in the conversation above:
 - Does your response accurately reflect what the tools actually returned?

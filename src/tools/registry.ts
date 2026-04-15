@@ -17,8 +17,7 @@ import type { SkillConfig } from '../skills/types.js';
 
 export interface PreReflectResult {
   proceed: boolean;
-  reason?: string;
-  explanation?: string;
+  message: string; // explanation if proceed, rejection reason if not
 }
 
 export interface BuiltinToolsOptions {
@@ -31,7 +30,6 @@ export interface BuiltinToolsOptions {
   onReload?: () => Promise<string | null>;
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
   onPreReflect?: (toolName: string, args: unknown) => Promise<PreReflectResult>;
-  onPreReflectExplanation?: (explanation: string) => void;
   allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
   generateDescription?: (content: string) => Promise<string>;
@@ -47,29 +45,28 @@ function wrapWithApproval(
   toolName: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tool: any,
-  onApproval: BuiltinToolsOptions['onApproval'],
-  onBeforeToolExecute: BuiltinToolsOptions['onBeforeToolExecute'],
-  onPreReflect: BuiltinToolsOptions['onPreReflect'],
-  onPreReflectExplanation: BuiltinToolsOptions['onPreReflectExplanation'],
+  opts: {
+    onApproval?: BuiltinToolsOptions['onApproval'];
+    onBeforeToolExecute?: BuiltinToolsOptions['onBeforeToolExecute'];
+    onPreReflect?: BuiltinToolsOptions['onPreReflect'];
+  },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   const originalExecute = tool.execute as (args: unknown, options: unknown) => Promise<unknown>;
   return {
     ...tool,
     execute: async (args: unknown, executeOptions: unknown) => {
-      await onBeforeToolExecute?.();
-      // Pre-reflection: validate tool choice before asking user for approval
-      if (onPreReflect && !SKIP_PRE_REFLECT.has(toolName)) {
-        const result = await onPreReflect(toolName, args);
+      await opts.onBeforeToolExecute?.();
+      // Pre-reflection: validate tool choice and show explanation
+      if (opts.onPreReflect && !SKIP_PRE_REFLECT.has(toolName)) {
+        const result = await opts.onPreReflect(toolName, args);
         if (!result.proceed) {
-          return { error: `Pre-reflection rejected: ${result.reason}. Reconsider your approach — check available skills or adjust parameters.` };
+          return { error: `${result.message} Reconsider your approach.` };
         }
-        if (result.explanation && onPreReflectExplanation) {
-          onPreReflectExplanation(result.explanation);
-        }
+        // result.message is the explanation — displayed by the callback
       }
-      if (onApproval) {
-        const decision = await onApproval(toolName, args);
+      if (opts.onApproval) {
+        const decision = await opts.onApproval(toolName, args);
         if (decision === 'deny') {
           return { error: 'Tool execution denied by user.' };
         }
@@ -130,7 +127,11 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
 
   if (options.onApproval || options.onBeforeToolExecute || options.onPreReflect) {
     for (const name of Object.keys(tools)) {
-      tools[name] = wrapWithApproval(name, tools[name], options.onApproval, options.onBeforeToolExecute, options.onPreReflect, options.onPreReflectExplanation);
+      tools[name] = wrapWithApproval(name, tools[name], {
+        onApproval: options.onApproval,
+        onBeforeToolExecute: options.onBeforeToolExecute,
+        onPreReflect: options.onPreReflect,
+      });
     }
   }
 
