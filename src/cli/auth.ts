@@ -1,3 +1,4 @@
+import puppeteer from 'puppeteer-core';
 import { existsSync, readFileSync } from 'node:fs';
 
 export interface AuthOptions {
@@ -32,20 +33,7 @@ function isWSL(): boolean {
   }
 }
 
-async function loadPuppeteer() {
-  try {
-    const mod = await import('puppeteer-core');
-    return mod.default;
-  } catch {
-    throw new Error(
-      'puppeteer-core is not available. ' +
-      'Install it with: npm install -g puppeteer-core',
-    );
-  }
-}
-
 async function launchBrowser(headless: boolean) {
-  const puppeteer = await loadPuppeteer();
   if (isWSL()) {
     // In WSL, use Windows Chrome/Edge via WSL interop so no X server is needed
     const wslArgs = ['--no-sandbox', '--disable-gpu', '--disable-software-rasterizer'];
