@@ -218,16 +218,22 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     // instead of original messages, so reflection sees what tools actually did.
     for (let i = 0; i < loops; i++) {
       options.onReflecting?.(i + 1);
-      const reflection = await reflectOnResponse(
-        effectiveModel,
-        applySliding(currentMessages, maxHistory),
-        finalText,
-        effectivePrompt,
-        options.temperature,
-      );
-      options.onReflectionDone?.(reflection.changed);
-      if (!reflection.changed) break;
-      finalText = reflection.text;
+      try {
+        const reflection = await reflectOnResponse(
+          effectiveModel,
+          applySliding(currentMessages, maxHistory),
+          finalText,
+          effectivePrompt,
+          options.temperature,
+        );
+        options.onReflectionDone?.(reflection.changed);
+        if (!reflection.changed) break;
+        finalText = reflection.text;
+      } catch {
+        // Context overflow or other API error — skip reflection, use current response
+        options.onReflectionDone?.(false);
+        break;
+      }
     }
     // Emit the (possibly revised) text after reflection
     onChunk?.(finalText);
