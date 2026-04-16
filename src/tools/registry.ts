@@ -10,6 +10,9 @@ import { createSetHeaderTool } from './set-header.js';
 import { createReloadConfigTool } from './reload-config.js';
 import { createBrowserAuthTool } from './browser-auth.js';
 import { createSyncSkillsTool } from './sync-skills.js';
+import { createSearchOnlineSkillTool } from './search-online-skill.js';
+import type { SimpleFetchResult } from './search-online-skill.js';
+import { createInstallOnlineSkillTool } from './install-online-skill.js';
 import { createDelegateTool } from './delegate.js';
 import type { SpecialistEntry } from './delegate.js';
 import type { ApprovalDecision } from '../approval/types.js';
@@ -30,6 +33,7 @@ export interface BuiltinToolsOptions {
   onReload?: () => Promise<string | null>;
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
   onPreReflect?: (toolName: string, args: unknown) => Promise<PreReflectResult>;
+  skillMarketUrl?: string;
   allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
   generateDescription?: (content: string) => Promise<string>;
@@ -108,6 +112,33 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     tools[setHeader.name] = setHeader.tool;
     const syncSkills = createSyncSkillsTool(options.configPath, options.skillsDir ?? './skills', options.generateDescription);
     tools[syncSkills.name] = syncSkills.tool;
+
+    // Skill market tools — fetch wrapper injects defaultHeaders for auth
+    const headers = options.defaultHeaders ?? {};
+    const marketFetch = async (url: string): Promise<SimpleFetchResult> => {
+      try {
+        const hostname = new URL(url).hostname;
+        const extra = headers[hostname] ?? {};
+        const response = await f(url, {
+          headers: Object.keys(extra).length > 0 ? extra : undefined,
+        });
+        const body = await response.text();
+        return { status: response.status, body };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    };
+
+    const searchOnlineSkill = createSearchOnlineSkillTool(options.skillMarketUrl, marketFetch);
+    tools[searchOnlineSkill.name] = searchOnlineSkill.tool;
+
+    const installOnlineSkill = createInstallOnlineSkillTool({
+      marketUrl: options.skillMarketUrl,
+      skillsDir: options.skillsDir ?? './skills',
+      configPath: options.configPath,
+      fetchFn: marketFetch,
+    });
+    tools[installOnlineSkill.name] = installOnlineSkill.tool;
   }
 
   {

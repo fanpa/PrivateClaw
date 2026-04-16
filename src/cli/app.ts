@@ -133,6 +133,7 @@ export function createApp(): Command {
           allowedCommands: config.security.allowedCommands,
           skills: config.skills,
           skillsDir: config.skillsDir,
+          skillMarketUrl: config.skillMarketUrl,
           sessionDir: config.session.sessionDir,
           specialists,
         });
