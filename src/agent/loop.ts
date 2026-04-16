@@ -3,6 +3,7 @@ import type { ModelMessage, LanguageModel } from 'ai';
 import { getModel, getRestrictedFetch } from '../provider/registry.js';
 import { getBuiltinTools } from '../tools/registry.js';
 import { buildSystemPrompt, DEFAULT_MAX_STEPS, REFLECTION_PROMPT, PRE_REFLECT_PROMPT } from './types.js';
+import { buildContextSummary } from './context-summary.js';
 import type { PreReflectResult } from '../tools/registry.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
@@ -100,6 +101,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   const preReflectCallback = loops > 0
     ? async (toolName: string, args: unknown): Promise<PreReflectResult> => {
         const skillList = options.skills?.map((s) => `${s.name}: ${s.description}`).join('\n') ?? 'none';
+        const contextSummary = buildContextSummary(currentMessages);
         try {
           const result = await generateText({
             model: effectiveModel,
@@ -107,7 +109,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
             messages: [
               {
                 role: 'user',
-                content: `Tool: ${toolName}\nArgs: ${JSON.stringify(args)}\n\nAvailable skills:\n${skillList}`,
+                content: `Tool: ${toolName}\nArgs: ${JSON.stringify(args)}\n\nAvailable skills:\n${skillList}\n\nContext:\n${contextSummary}`,
               },
             ],
             temperature: 0,
@@ -204,7 +206,21 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     if (stepHasText || !stepHasToolCall) break;
 
     // Tool calls occurred without a final answer — carry messages forward so the
-    // next step sees the tool results.
+    // next step sees the tool results. Truncate large results to prevent context overflow.
+    // Truncate large tool result bodies to prevent context overflow
+    for (const msg of stepMessages) {
+      if (msg.role === 'tool' && Array.isArray(msg.content)) {
+        for (let j = 0; j < msg.content.length; j++) {
+          const part = msg.content[j] as unknown as Record<string, unknown>;
+          if (part.type === 'tool-result' && typeof part.result === 'object' && part.result !== null) {
+            const res = part.result as Record<string, unknown>;
+            if (typeof res.body === 'string' && res.body.length > 10000) {
+              res.body = (res.body as string).slice(0, 5000) + '\n[truncated]';
+            }
+          }
+        }
+      }
+    }
     currentMessages = [...currentMessages, ...stepMessages];
   }
 
@@ -216,16 +232,22 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     // instead of original messages, so reflection sees what tools actually did.
     for (let i = 0; i < loops; i++) {
       options.onReflecting?.(i + 1);
-      const reflection = await reflectOnResponse(
-        effectiveModel,
-        applySliding(currentMessages, maxHistory),
-        finalText,
-        effectivePrompt,
-        options.temperature,
-      );
-      options.onReflectionDone?.(reflection.changed);
-      if (!reflection.changed) break;
-      finalText = reflection.text;
+      try {
+        const reflection = await reflectOnResponse(
+          effectiveModel,
+          applySliding(currentMessages, maxHistory),
+          finalText,
+          effectivePrompt,
+          options.temperature,
+        );
+        options.onReflectionDone?.(reflection.changed);
+        if (!reflection.changed) break;
+        finalText = reflection.text;
+      } catch {
+        // Context overflow or other API error — skip reflection, use current response
+        options.onReflectionDone?.(false);
+        break;
+      }
     }
     // Emit the (possibly revised) text after reflection
     onChunk?.(finalText);
