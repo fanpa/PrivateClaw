@@ -90,6 +90,7 @@ export interface ChatOptions {
   allowedCommands?: string[];
   skills?: SkillConfig[];
   skillsDir?: string;
+  skillMarketUrl?: string;
   sessionDir?: string;
   specialists?: import('../tools/delegate.js').SpecialistEntry[];
 }
@@ -166,6 +167,7 @@ export async function startChat(
             allowedCommands: config.security.allowedCommands,
             skills: config.skills,
             skillsDir: config.skillsDir,
+            skillMarketUrl: config.skillMarketUrl,
             sessionDir: config.session.sessionDir,
           };
           renderSystemMessage('Config reloaded successfully.');
@@ -206,6 +208,7 @@ export async function startChat(
           allowedCommands: currentOptions.allowedCommands,
           skills: currentOptions.skills,
           skillsDir: currentOptions.skillsDir,
+          skillMarketUrl: currentOptions.skillMarketUrl,
           configPath: currentOptions.configPath,
           specialists: currentOptions.specialists,
           onReload: async () => {
@@ -223,6 +226,7 @@ export async function startChat(
                 allowedCommands: config.security.allowedCommands,
                 skills: config.skills,
                 skillsDir: config.skillsDir,
+                skillMarketUrl: config.skillMarketUrl,
                 sessionDir: config.session.sessionDir,
               };
               return null; // success

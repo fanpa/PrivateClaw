@@ -26,7 +26,9 @@ export function buildSystemPrompt(skills: SkillConfig[] = [], specialistRoles: s
 - set_header: Set default HTTP headers for a domain (Authorization, User-Agent, Cookie, etc.)
 - reload_config: Reload configuration file to apply changes
 - browser_auth: Open browser for user to log in, capture cookies and return them
-- sync_skills: Synchronize skills between skills directory and config file`;
+- sync_skills: Synchronize skills between skills directory and config file
+- search_online_skill: Search for skills in the online skill market
+- install_online_skill: Download and install a skill from the market`;
 
   if (specialistRoles.length > 0) {
     prompt += `\n- delegate: Delegate a task to a specialist model for higher quality results`;
@@ -63,6 +65,7 @@ When a user asks you to call an API or make HTTP requests with specific methods,
 When a user needs to set authentication headers or custom headers for a domain, use set_header to save them to config, then call reload_config to apply.
 When a user needs to log in to a website to access its API, use browser_auth to open a browser. After login, cookies are captured and returned. Review the cookies and use set_header to save the needed values, then call reload_config to apply.
 When the user asks to sync or refresh skills, use sync_skills. If orphaned skills are found, ask the user before removing them.
+When the user wants to find or install new skills from the market, use search_online_skill to browse available skills, then install_online_skill to download and install. After installing, call reload_config to apply.
 When a user asks about your capabilities, list all tools above.
 Always use the appropriate tool rather than guessing or making up information.
 

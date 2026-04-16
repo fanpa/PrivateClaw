@@ -21,6 +21,7 @@ export interface RunAgentTurnOptions {
   skillsDir?: string;
   allowedCommands?: string[];
   configPath?: string;
+  skillMarketUrl?: string;
   specialists?: import('../tools/delegate.js').SpecialistEntry[];
   onChunk?: (chunk: string) => void;
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
@@ -139,6 +140,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     onReload: options.onReload,
     onApproval: options.onToolApproval,
     onPreReflect: preReflectCallback,
+    skillMarketUrl: options.skillMarketUrl,
     generateDescription: async (content: string) => {
       const result = await generateText({
         model: effectiveModel,
