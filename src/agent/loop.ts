@@ -206,7 +206,21 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     if (stepHasText || !stepHasToolCall) break;
 
     // Tool calls occurred without a final answer — carry messages forward so the
-    // next step sees the tool results.
+    // next step sees the tool results. Truncate large results to prevent context overflow.
+    // Truncate large tool result bodies to prevent context overflow
+    for (const msg of stepMessages) {
+      if (msg.role === 'tool' && Array.isArray(msg.content)) {
+        for (let j = 0; j < msg.content.length; j++) {
+          const part = msg.content[j] as unknown as Record<string, unknown>;
+          if (part.type === 'tool-result' && typeof part.result === 'object' && part.result !== null) {
+            const res = part.result as Record<string, unknown>;
+            if (typeof res.body === 'string' && res.body.length > 10000) {
+              res.body = (res.body as string).slice(0, 5000) + '\n[truncated]';
+            }
+          }
+        }
+      }
+    }
     currentMessages = [...currentMessages, ...stepMessages];
   }
 
