@@ -3,6 +3,7 @@ import type { ModelMessage, LanguageModel } from 'ai';
 import { getModel, getRestrictedFetch } from '../provider/registry.js';
 import { getBuiltinTools } from '../tools/registry.js';
 import { buildSystemPrompt, DEFAULT_MAX_STEPS, REFLECTION_PROMPT, PRE_REFLECT_PROMPT } from './types.js';
+import { buildContextSummary } from './context-summary.js';
 import type { PreReflectResult } from '../tools/registry.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
@@ -100,6 +101,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   const preReflectCallback = loops > 0
     ? async (toolName: string, args: unknown): Promise<PreReflectResult> => {
         const skillList = options.skills?.map((s) => `${s.name}: ${s.description}`).join('\n') ?? 'none';
+        const contextSummary = buildContextSummary(currentMessages);
         try {
           const result = await generateText({
             model: effectiveModel,
@@ -107,7 +109,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
             messages: [
               {
                 role: 'user',
-                content: `Tool: ${toolName}\nArgs: ${JSON.stringify(args)}\n\nAvailable skills:\n${skillList}`,
+                content: `Tool: ${toolName}\nArgs: ${JSON.stringify(args)}\n\nAvailable skills:\n${skillList}\n\nContext:\n${contextSummary}`,
               },
             ],
             temperature: 0,
