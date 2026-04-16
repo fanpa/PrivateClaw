@@ -90,11 +90,13 @@ export const DEFAULT_SYSTEM_PROMPT = buildSystemPrompt();
 export const DEFAULT_MAX_STEPS = 10;
 
 export const PRE_REFLECT_PROMPT = `You are validating a tool call. The AI assistant is about to use a tool.
+You will receive the tool name, arguments, available skills, and current conversation context.
 
 Check:
-1. Is there an available skill that should be used instead?
-2. Are the parameters correct?
-3. Is this the right tool for the task?
+1. If an active skill is loaded and the tool call is part of that skill's workflow, ALLOW it.
+2. If NO active skill is loaded and a matching skill exists, REJECT and suggest using the skill.
+3. Are the parameters correct? (e.g. correct file path, valid URL, proper method)
+4. Is this the right tool for the task?
 
 If WRONG, reply: REJECT: (reason)
 If CORRECT, reply with a single sentence explaining what this tool call will do, in the user's language.
