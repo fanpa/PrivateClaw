@@ -65,7 +65,7 @@ function wrapWithApproval(
       if (opts.onPreReflect && !SKIP_PRE_REFLECT.has(toolName)) {
         const result = await opts.onPreReflect(toolName, args);
         if (!result.proceed) {
-          return { error: `${result.message} Reconsider your approach.` };
+          return { error: `${result.message} Do NOT retry this tool — follow the instruction above first.` };
         }
         // result.message is the explanation — displayed by the callback
       }
