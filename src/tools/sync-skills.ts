@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { defineTool } from './define-tool.js';
 
 interface SyncResult {
   added: string[];
@@ -61,7 +62,6 @@ async function doSync(
     }
   }
 
-  // Find new skills (in directory but not in config)
   const added: string[] = [];
   for (const name of dirNames) {
     if (!registeredNames.has(name)) {
@@ -82,7 +82,6 @@ async function doSync(
     }
   }
 
-  // Find orphaned skills (in config but not in directory)
   const orphaned: string[] = [];
   const removed: string[] = [];
   for (const s of skills) {
@@ -118,19 +117,13 @@ export function createSyncSkillsTool(
   skillsDir: string,
   generateDescription?: (content: string) => Promise<string>,
 ) {
-  return {
+  return defineTool({
     name: 'sync_skills' as const,
     description: 'Synchronize skills between the skills directory and config file.',
-    tool: {
-      description:
-        'Scan the skills directory and compare with config. New skills in the directory are registered. Skills in config but missing from the directory are reported as orphaned. Set removeOrphaned=true to delete orphaned entries (ask the user first).',
-      inputSchema: parameters,
-      execute: async (args: z.infer<typeof parameters>): Promise<SyncResult> => {
-        return doSync(configPath, skillsDir, args.removeOrphaned ?? false, generateDescription);
-      },
-    },
-    execute: async (params: { removeOrphaned?: boolean }): Promise<SyncResult> => {
-      return doSync(configPath, skillsDir, params.removeOrphaned ?? false, generateDescription);
-    },
-  };
+    toolDescription:
+      'Scan the skills directory and compare with config. New skills in the directory are registered. Skills in config but missing from the directory are reported as orphaned. Set removeOrphaned=true to delete orphaned entries (ask the user first).',
+    parameters,
+    execute: async (args): Promise<SyncResult> =>
+      doSync(configPath, skillsDir, args.removeOrphaned ?? false, generateDescription),
+  });
 }

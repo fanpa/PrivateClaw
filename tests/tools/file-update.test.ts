@@ -62,6 +62,20 @@ describe('fileUpdateTool', () => {
     expect(result.diff).toBe('');
   });
 
+  it('emits unified-diff hunk headers', async () => {
+    const filePath = join(TEST_DIR, 'hunk.txt');
+    writeFileSync(filePath, 'a\nb\nc\nd\ne\n');
+    const result = await fileUpdateTool.execute({
+      filePath,
+      content: 'a\nb\nCHANGED\nd\ne\n',
+    });
+    expect(result.diff).toMatch(/^@@ -\d+,\d+ \+\d+,\d+ @@/m);
+    expect(result.diff).toContain('-c');
+    expect(result.diff).toContain('+CHANGED');
+    expect(result.diff).toContain(' b');
+    expect(result.diff).toContain(' d');
+  });
+
   describe('tool object (AI SDK path)', () => {
     it('has inputSchema defined on tool object', () => {
       expect(fileUpdateTool.tool.inputSchema).toBeDefined();

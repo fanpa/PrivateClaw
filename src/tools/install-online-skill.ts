@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { toRawUrl } from './search-online-skill.js';
 import type { SimpleFetchFn } from './search-online-skill.js';
+import { defineTool } from './define-tool.js';
 
 interface InstallResult {
   message?: string;
@@ -44,7 +45,6 @@ async function doInstall(
   mkdirSync(skillDir, { recursive: true });
   writeFileSync(skillPath, result.body, 'utf-8');
 
-  // Auto-register in config
   try {
     const raw = readFileSync(opts.configPath, 'utf-8');
     const config = JSON.parse(raw);
@@ -76,18 +76,11 @@ export function createInstallOnlineSkillTool(opts: {
   configPath: string;
   fetchFn: SimpleFetchFn;
 }) {
-  return {
+  return defineTool({
     name: 'install_online_skill' as const,
     description: 'Download and install a skill from the online skill market.',
-    tool: {
-      description: 'Download a skill from the online market and install it locally. The skill will be saved to the skills directory and registered in config. Use search_online_skill first to find available skills.',
-      inputSchema: parameters,
-      execute: async ({ name }: z.infer<typeof parameters>): Promise<InstallResult> => {
-        return doInstall(name, opts);
-      },
-    },
-    execute: async (params: { name: string }): Promise<InstallResult> => {
-      return doInstall(params.name, opts);
-    },
-  };
+    toolDescription: 'Download a skill from the online market and install it locally. The skill will be saved to the skills directory and registered in config. Use search_online_skill first to find available skills.',
+    parameters,
+    execute: async ({ name }): Promise<InstallResult> => doInstall(name, opts),
+  });
 }

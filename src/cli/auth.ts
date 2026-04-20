@@ -35,7 +35,6 @@ function isWSL(): boolean {
 
 async function launchBrowser(headless: boolean) {
   if (isWSL()) {
-    // In WSL, use Windows Chrome/Edge via WSL interop so no X server is needed
     const wslArgs = ['--no-sandbox', '--disable-gpu', '--disable-software-rasterizer'];
     if (existsSync(CHROME_WSL_PATH)) {
       return puppeteer.launch({ executablePath: CHROME_WSL_PATH, headless, args: wslArgs });
@@ -59,6 +58,40 @@ async function launchBrowser(headless: boolean) {
   return puppeteer.launch({ channel: 'chrome', headless });
 }
 
+async function waitForLoginCompletion(
+  page: Awaited<ReturnType<Awaited<ReturnType<typeof launchBrowser>>['newPage']>>,
+  options: AuthOptions,
+  timeout: number,
+): Promise<void> {
+  if (options.waitForUrl) {
+    const pattern = options.waitForUrl;
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      const currentUrl = page.url();
+      let matched: boolean;
+      try {
+        matched = new RegExp(pattern).test(currentUrl);
+      } catch {
+        matched = currentUrl.startsWith(pattern) || currentUrl.includes(pattern);
+      }
+      if (matched) return;
+      await page
+        .waitForNavigation({ timeout: Math.min(5000, deadline - Date.now()) })
+        .catch(() => {});
+    }
+    throw new Error(`Timed out waiting for URL matching: ${pattern}`);
+  }
+
+  console.log('Press Enter in this terminal after you have logged in...');
+  await new Promise<void>((resolve) => {
+    const onData = () => {
+      process.stdin.removeListener('data', onData);
+      resolve();
+    };
+    process.stdin.on('data', onData);
+  });
+}
+
 export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
   const { url, timeout = 300000 } = options;
   const targetUrl = new URL(url);
@@ -69,58 +102,37 @@ export async function executeAuth(options: AuthOptions): Promise<AuthResult> {
   console.log('Browser will close automatically after login is detected.\n');
 
   const browser = await launchBrowser(false);
-  const page = await browser.newPage();
+  try {
+    const page = await browser.newPage();
 
-  if (options.extraHeaders && Object.keys(options.extraHeaders).length > 0) {
-    await page.setExtraHTTPHeaders(options.extraHeaders);
-  }
-
-  await page.goto(url);
-
-  if (options.waitForUrl) {
-    const pattern = options.waitForUrl;
-    const deadline = Date.now() + timeout;
-    let matched = false;
-    while (!matched && Date.now() < deadline) {
-      const currentUrl = page.url();
-      try {
-        matched = new RegExp(pattern).test(currentUrl);
-      } catch {
-        matched = currentUrl.startsWith(pattern) || currentUrl.includes(pattern);
-      }
-      if (!matched) {
-        await page
-          .waitForNavigation({ timeout: Math.min(5000, deadline - Date.now()) })
-          .catch(() => {});
-      }
+    if (options.extraHeaders && Object.keys(options.extraHeaders).length > 0) {
+      await page.setExtraHTTPHeaders(options.extraHeaders);
     }
-    if (!matched) {
-      throw new Error(`Timed out waiting for URL matching: ${pattern}`);
+
+    await page.goto(url);
+    await waitForLoginCompletion(page, options, timeout);
+
+    const cdpSession = await page.createCDPSession();
+    let cookies: Array<{ name: string; value: string; domain: string }>;
+    try {
+      ({ cookies } = await cdpSession.send('Network.getAllCookies'));
+    } finally {
+      await cdpSession.detach().catch(() => {});
     }
-  } else {
-    console.log('Press Enter in this terminal after you have logged in...');
-    await new Promise<void>((resolve) => {
-      process.stdin.once('data', () => resolve());
-    });
+
+    const domainCookies = cookies.filter(
+      (c) => c.domain === domain || c.domain === `.${domain}` || domain.endsWith(c.domain.replace(/^\./, '')),
+    );
+
+    if (domainCookies.length === 0) {
+      throw new Error(`No cookies found for domain: ${domain}`);
+    }
+
+    return {
+      domain,
+      cookies: domainCookies.map((c) => ({ name: c.name, value: c.value, domain: c.domain })),
+    };
+  } finally {
+    await browser.close().catch(() => {});
   }
-
-  // Capture all cookies via CDP to get cross-domain cookies after redirects
-  const cdpSession = await page.createCDPSession();
-  const { cookies } = await cdpSession.send('Network.getAllCookies');
-  await cdpSession.detach();
-
-  const domainCookies = cookies.filter(
-    (c) => c.domain === domain || c.domain === `.${domain}` || domain.endsWith(c.domain.replace(/^\./, '')),
-  );
-
-  await browser.close();
-
-  if (domainCookies.length === 0) {
-    throw new Error(`No cookies found for domain: ${domain}`);
-  }
-
-  return {
-    domain,
-    cookies: domainCookies.map((c) => ({ name: c.name, value: c.value, domain: c.domain })),
-  };
 }

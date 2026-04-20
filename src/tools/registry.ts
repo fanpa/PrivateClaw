@@ -44,6 +44,12 @@ const SKIP_PRE_REFLECT = new Set([
   'use_skill', 'reload_config', 'sync_skills', 'file_read',
 ]);
 
+// Tools that skip approval prompts (meta/read-only tools that don't touch
+// user files, shell, or the network).
+const SKIP_APPROVAL = new Set([
+  'use_skill', 'reload_config', 'sync_skills',
+]);
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrapWithApproval(
   toolName: string,
@@ -69,7 +75,7 @@ function wrapWithApproval(
         }
         // result.message is the explanation — displayed by the callback
       }
-      if (opts.onApproval) {
+      if (opts.onApproval && !SKIP_APPROVAL.has(toolName)) {
         const decision = await opts.onApproval(toolName, args);
         if (decision === 'deny') {
           return { error: 'Tool execution denied by user.' };

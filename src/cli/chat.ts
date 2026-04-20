@@ -1,9 +1,10 @@
 import * as readline from 'node:readline';
 import type { ModelMessage } from 'ai';
-import { runAgentTurn } from '../agent/loop.js';
+import { runAgentTurn, DEFAULT_MAX_HISTORY } from '../agent/loop.js';
 import { SessionRepository } from '../session/repository.js';
 import { getProviderName } from '../provider/registry.js';
 import { loadConfig } from '../config/loader.js';
+import type { Config } from '../config/schema.js';
 import { initFromConfig } from './app.js';
 import { ToolApprovalManager } from '../approval/manager.js';
 import type { ApprovalDecision } from '../approval/types.js';
@@ -95,13 +96,28 @@ export interface ChatOptions {
   specialists?: import('../tools/delegate.js').SpecialistEntry[];
 }
 
+function mergeConfigIntoOptions(options: ChatOptions, config: Config): ChatOptions {
+  return {
+    ...options,
+    temperature: config.provider.temperature,
+    reflectionLoops: config.provider.reflectionLoops,
+    maxHistoryMessages: config.session.maxHistoryMessages,
+    defaultHeaders: config.security.defaultHeaders,
+    allowedDomains: config.security.allowedDomains,
+    allowedCommands: config.security.allowedCommands,
+    skills: config.skills,
+    skillsDir: config.skillsDir,
+    skillMarketUrl: config.skillMarketUrl,
+    sessionDir: config.session.sessionDir,
+  };
+}
+
 export async function startChat(
   sessionId?: string,
   options: ChatOptions = {},
 ): Promise<void> {
   const approvalManager = new ToolApprovalManager();
 
-  // Mutable options that can be reloaded
   let currentOptions = { ...options };
 
   const repo = new SessionRepository(currentOptions.sessionDir ?? './.privateclaw/sessions');
@@ -127,6 +143,20 @@ export async function startChat(
   const prompt = (): Promise<string> =>
     new Promise((resolve) => rl.question('> ', resolve));
 
+  const reloadCurrentConfig = async (): Promise<{ config?: Config; error?: string }> => {
+    if (!currentOptions.configPath) {
+      return { error: 'Config path not available. Restart with -c option.' };
+    }
+    try {
+      const config = loadConfig(currentOptions.configPath);
+      initFromConfig(config);
+      currentOptions = mergeConfigIntoOptions(currentOptions, config);
+      return { config };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  };
+
   try {
     while (true) {
       const input = await prompt();
@@ -135,7 +165,6 @@ export async function startChat(
       if (trimmed === '/quit' || trimmed === '/exit') break;
       if (trimmed === '') continue;
 
-      // Chat commands
       if (trimmed === '/domains') {
         const domains = currentOptions.allowedDomains ?? [];
         if (domains.length === 0) {
@@ -150,31 +179,15 @@ export async function startChat(
       }
 
       if (trimmed === '/reload') {
-        if (!currentOptions.configPath) {
-          renderError('Config path not available. Restart with -c option.');
+        const { config, error } = await reloadCurrentConfig();
+        if (error) {
+          renderError(`Failed to reload config: ${error}`);
           continue;
         }
-        try {
-          const config = loadConfig(currentOptions.configPath);
-          initFromConfig(config);
-          currentOptions = {
-            ...currentOptions,
-            temperature: config.provider.temperature,
-            reflectionLoops: config.provider.reflectionLoops,
-            maxHistoryMessages: config.session.maxHistoryMessages,
-            defaultHeaders: config.security.defaultHeaders,
-            allowedDomains: config.security.allowedDomains,
-            allowedCommands: config.security.allowedCommands,
-            skills: config.skills,
-            skillsDir: config.skillsDir,
-            skillMarketUrl: config.skillMarketUrl,
-            sessionDir: config.session.sessionDir,
-          };
-          renderSystemMessage('Config reloaded successfully.');
+        renderSystemMessage('Config reloaded successfully.');
+        if (config) {
           renderSystemMessage(`Provider: ${config.provider.type} (${config.provider.model})`);
           renderSystemMessage(`Allowed domains: ${config.security.allowedDomains.join(', ') || '(none — all allowed)'}`);
-        } catch (err) {
-          renderError(`Failed to reload config: ${err instanceof Error ? err.message : String(err)}`);
         }
         continue;
       }
@@ -211,29 +224,7 @@ export async function startChat(
           skillMarketUrl: currentOptions.skillMarketUrl,
           configPath: currentOptions.configPath,
           specialists: currentOptions.specialists,
-          onReload: async () => {
-            if (!currentOptions.configPath) return 'Config path not available.';
-            try {
-              const config = loadConfig(currentOptions.configPath);
-              initFromConfig(config);
-              currentOptions = {
-                ...currentOptions,
-                temperature: config.provider.temperature,
-                reflectionLoops: config.provider.reflectionLoops,
-                maxHistoryMessages: config.session.maxHistoryMessages,
-                defaultHeaders: config.security.defaultHeaders,
-                allowedDomains: config.security.allowedDomains,
-                allowedCommands: config.security.allowedCommands,
-                skills: config.skills,
-                skillsDir: config.skillsDir,
-                skillMarketUrl: config.skillMarketUrl,
-                sessionDir: config.session.sessionDir,
-              };
-              return null; // success
-            } catch (err) {
-              return err instanceof Error ? err.message : String(err);
-            }
-          },
+          onReload: async () => (await reloadCurrentConfig()).error ?? null,
           onChunk: () => {},
           onPreReflectExplanation: renderPreReflectExplanation,
           onReflecting: renderReflecting,
@@ -258,17 +249,14 @@ export async function startChat(
           renderMarkdownResponse(result.text);
         }
 
-        // Save new messages incrementally (user message + response)
         repo.appendMessages(session!.id, [
           { role: 'user' as const, content: trimmed },
           ...result.responseMessages,
         ]);
 
-        // Add response to in-memory array
         messages.push(...result.responseMessages);
 
-        // Trim in-memory messages to sliding window to prevent unbounded growth
-        const maxHistory = currentOptions.maxHistoryMessages ?? 20;
+        const maxHistory = currentOptions.maxHistoryMessages ?? DEFAULT_MAX_HISTORY;
         if (maxHistory > 0 && messages.length > maxHistory) {
           messages.splice(0, messages.length - maxHistory);
         }

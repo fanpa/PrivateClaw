@@ -70,6 +70,35 @@ describe('createDelegateTool', () => {
     expect(result.error).toContain('API timeout');
   });
 
+  it('passes an AbortSignal so the call can be timed out', async () => {
+    mockGenerateText.mockResolvedValue({ text: 'ok' });
+
+    const specialists = [
+      { role: 'coding', model: {} as LanguageModel, description: 'Code' },
+    ];
+    const tool = createDelegateTool(specialists);
+    await tool.execute({ specialist: 'coding', task: 'hi' });
+
+    const call = mockGenerateText.mock.calls[0][0];
+    expect(call.abortSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('reports timeout when the abort signal fires during generateText', async () => {
+    mockGenerateText.mockImplementation(async (args: { abortSignal: AbortSignal }) => {
+      return new Promise((_resolve, reject) => {
+        args.abortSignal.addEventListener('abort', () => reject(new Error('aborted')));
+      });
+    });
+
+    const specialists = [
+      { role: 'fast', model: {} as LanguageModel, description: 'Fast', timeoutMs: 20 },
+    ];
+    const tool = createDelegateTool(specialists);
+    const result = await tool.execute({ specialist: 'fast', task: 'long task' });
+
+    expect(result.error).toContain('timed out');
+  });
+
   describe('tool object (AI SDK path)', () => {
     it('has inputSchema defined', () => {
       const tool = createDelegateTool([]);

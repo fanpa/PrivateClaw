@@ -8,6 +8,10 @@ import type { PreReflectResult } from '../tools/registry.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
 
+export const DEFAULT_MAX_HISTORY = 20;
+const TOOL_RESULT_BODY_LIMIT = 10000;
+const TOOL_RESULT_BODY_KEEP = 5000;
+
 export interface RunAgentTurnOptions {
   messages: ModelMessage[];
   systemPrompt?: string;
@@ -44,6 +48,23 @@ function applySliding(messages: ModelMessage[], max: number): ModelMessage[] {
   return messages.slice(-max);
 }
 
+function truncateToolResultBodies(messages: ModelMessage[]): ModelMessage[] {
+  const cloned = structuredClone(messages);
+  for (const msg of cloned) {
+    if (msg.role !== 'tool' || !Array.isArray(msg.content)) continue;
+    for (const part of msg.content) {
+      const p = part as unknown as Record<string, unknown>;
+      if (p.type !== 'tool-result') continue;
+      const res = p.result as Record<string, unknown> | undefined;
+      if (!res || typeof res.body !== 'string') continue;
+      if (res.body.length > TOOL_RESULT_BODY_LIMIT) {
+        res.body = (res.body as string).slice(0, TOOL_RESULT_BODY_KEEP) + '\n[truncated]';
+      }
+    }
+  }
+  return cloned;
+}
+
 async function reflectOnResponse(
   effectiveModel: LanguageModel,
   messages: ModelMessage[],
@@ -78,8 +99,6 @@ async function reflectOnResponse(
     }
   }
 
-  // Safety net: LLM ignored the format — fall back to original to prevent
-  // critique/instruction text from leaking to the user.
   return { text: response, changed: false };
 }
 
@@ -96,9 +115,10 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills, specialistRoles);
   const effectiveModel = model ?? getModel();
   const loops = options.reflectionLoops ?? 0;
-  const maxHistory = options.maxHistoryMessages ?? 0;
+  const maxHistory = options.maxHistoryMessages ?? DEFAULT_MAX_HISTORY;
 
-  // Pre-reflection callback: validates tool calls and generates explanation
+  let currentMessages: ModelMessage[] = applySliding([...messages], maxHistory);
+
   const preReflectCallback = loops > 0
     ? async (toolName: string, args: unknown): Promise<PreReflectResult> => {
         const skillList = options.skills?.map((s) => `${s.name}: ${s.description}`).join('\n') ?? 'none';
@@ -119,7 +139,6 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
           if (text.startsWith('REJECT:')) {
             return { proceed: false, message: text.slice('REJECT:'.length).trim() };
           }
-          // Valid explanation — show to user
           options.onPreReflectExplanation?.(text);
           return { proceed: true, message: text };
         } catch {
@@ -128,7 +147,6 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
       }
     : undefined;
 
-  // Build tools once; reused across steps so approval callbacks stay consistent.
   const toolSet = getBuiltinTools({
     fetchFn: getRestrictedFetch(),
     defaultHeaders: options.defaultHeaders,
@@ -155,14 +173,11 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     },
   });
 
-  let currentMessages: ModelMessage[] = applySliding([...messages], maxHistory);
   let fullText = '';
-  let allResponseMessages: ModelMessage[] = [];
+  const allResponseMessages: ModelMessage[] = [];
 
   // Each iteration opens a fresh HTTP connection (one streamText call = one request).
-  // This prevents the TypeError: terminated that occurs when AI SDK's built-in
-  // multi-step reuses a connection whose previous streaming response was not fully
-  // drained before the next request was issued.
+  // Drain result.response even on error to prevent dangling connections.
   for (let step = 0; step < maxSteps; step++) {
     const result = streamText({
       model: effectiveModel,
@@ -176,62 +191,47 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     let stepHasToolCall = false;
     let stepHasText = false;
 
-    for await (const part of result.fullStream) {
-      switch (part.type) {
-        case 'text-delta':
-          fullText += part.text;
-          stepHasText = true;
-          // When reflection is enabled, buffer text and hold streaming until after LGTM
-          if (loops === 0) onChunk?.(part.text);
-          break;
-        case 'tool-call': {
-          stepHasToolCall = true;
-          const callPart = part as unknown as { toolName: string; input: Record<string, unknown> };
-          options.onToolCall?.(callPart.toolName, callPart.input);
-          break;
-        }
-        case 'tool-result': {
-          const resultPart = part as unknown as { toolName: string; output: unknown };
-          options.onToolResult?.(resultPart.toolName, resultPart.output);
-          break;
+    try {
+      for await (const part of result.fullStream) {
+        switch (part.type) {
+          case 'text-delta':
+            fullText += part.text;
+            stepHasText = true;
+            if (loops === 0) onChunk?.(part.text);
+            break;
+          case 'tool-call': {
+            stepHasToolCall = true;
+            const callPart = part as unknown as { toolName: string; input: Record<string, unknown> };
+            options.onToolCall?.(callPart.toolName, callPart.input);
+            break;
+          }
+          case 'tool-result': {
+            const resultPart = part as unknown as { toolName: string; output: unknown };
+            options.onToolResult?.(resultPart.toolName, resultPart.output);
+            break;
+          }
         }
       }
+    } catch (err) {
+      try { await result.response; } catch { /* drain to free HTTP connection */ }
+      throw err;
     }
 
-    // Await response after stream is fully consumed to ensure the underlying
-    // HTTP connection is properly drained before any subsequent request.
     const response = await result.response;
     const stepMessages = response.messages as ModelMessage[];
     allResponseMessages.push(...stepMessages);
 
-    // Stop if the model produced text (final answer), or if no tool calls were made.
     if (stepHasText || !stepHasToolCall) break;
 
-    // Tool calls occurred without a final answer — carry messages forward so the
-    // next step sees the tool results. Truncate large results to prevent context overflow.
-    // Truncate large tool result bodies to prevent context overflow
-    for (const msg of stepMessages) {
-      if (msg.role === 'tool' && Array.isArray(msg.content)) {
-        for (let j = 0; j < msg.content.length; j++) {
-          const part = msg.content[j] as unknown as Record<string, unknown>;
-          if (part.type === 'tool-result' && typeof part.result === 'object' && part.result !== null) {
-            const res = part.result as Record<string, unknown>;
-            if (typeof res.body === 'string' && res.body.length > 10000) {
-              res.body = (res.body as string).slice(0, 5000) + '\n[truncated]';
-            }
-          }
-        }
-      }
-    }
-    currentMessages = [...currentMessages, ...stepMessages];
+    // Clone before truncating so the saved history (allResponseMessages) keeps
+    // the full tool result body; only the LLM context gets truncated.
+    const contextMessages = truncateToolResultBodies(stepMessages);
+    currentMessages = [...currentMessages, ...contextMessages];
   }
 
-  // Self-reflection loop
   let finalText = fullText;
 
   if (loops > 0 && finalText.length > 0) {
-    // Use currentMessages (includes tool call/result history from this turn)
-    // instead of original messages, so reflection sees what tools actually did.
     for (let i = 0; i < loops; i++) {
       options.onReflecting?.(i + 1);
       try {
@@ -246,12 +246,10 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
         if (!reflection.changed) break;
         finalText = reflection.text;
       } catch {
-        // Context overflow or other API error — skip reflection, use current response
         options.onReflectionDone?.(false);
         break;
       }
     }
-    // Emit the (possibly revised) text after reflection
     onChunk?.(finalText);
   }
 

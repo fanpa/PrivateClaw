@@ -1,11 +1,15 @@
 import { z } from 'zod';
 import { generateText } from 'ai';
 import type { LanguageModel } from 'ai';
+import { defineTool } from './define-tool.js';
+
+const DEFAULT_SPECIALIST_TIMEOUT_MS = 120000;
 
 export interface SpecialistEntry {
   role: string;
   model: LanguageModel;
   description: string;
+  timeoutMs?: number;
 }
 
 interface DelegateResult {
@@ -34,16 +38,27 @@ async function doDelegate(
     return { error: `Specialist "${specialist}" not found. Available: ${available}` };
   }
 
+  const timeoutMs = entry.timeoutMs ?? DEFAULT_SPECIALIST_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  timer.unref();
+
   try {
     const result = await generateText({
       model: entry.model,
       prompt: task,
+      abortSignal: controller.signal,
     });
     return { response: result.text, specialist };
   } catch (err) {
+    if (controller.signal.aborted) {
+      return { error: `Specialist "${specialist}" timed out after ${timeoutMs}ms` };
+    }
     return {
       error: `Specialist "${specialist}" failed: ${err instanceof Error ? err.message : String(err)}`,
     };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -52,18 +67,12 @@ export function createDelegateTool(specialists: SpecialistEntry[]) {
     ? specialists.map((s) => `"${s.role}" — ${s.description}`).join(', ')
     : 'none configured';
 
-  return {
+  return defineTool({
     name: 'delegate' as const,
     description: `Delegate a task to a specialist model. Available: ${specialistList}`,
-    tool: {
-      description: `Delegate a task to a specialist model for higher quality results. Available: ${specialistList}`,
-      inputSchema: parameters,
-      execute: async ({ specialist, task }: z.infer<typeof parameters>): Promise<DelegateResult> => {
-        return doDelegate(specialist, task, specialists);
-      },
-    },
-    execute: async (params: { specialist: string; task: string }): Promise<DelegateResult> => {
-      return doDelegate(params.specialist, params.task, specialists);
-    },
-  };
+    toolDescription: `Delegate a task to a specialist model for higher quality results. Available: ${specialistList}`,
+    parameters,
+    execute: async ({ specialist, task }): Promise<DelegateResult> =>
+      doDelegate(specialist, task, specialists),
+  });
 }
