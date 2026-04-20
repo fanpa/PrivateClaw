@@ -43,6 +43,7 @@ export const ConfigSchema = z.object({
   skills: z.array(SkillEntrySchema).default([]),
   skillsDir: z.string().default('./skills'),
   skillMarketUrl: z.string().optional(),
+  skillMarketBranch: z.string().default('main'),
   skillMaxDepth: z.number().int().min(1).max(20).default(5),
   specialists: z.array(SpecialistSchema).default([]),
 });

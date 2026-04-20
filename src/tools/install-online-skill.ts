@@ -18,6 +18,7 @@ async function doInstall(
   name: string,
   opts: {
     marketUrl: string | undefined;
+    branch: string;
     skillsDir: string;
     configPath: string;
     fetchFn: SimpleFetchFn;
@@ -35,7 +36,7 @@ async function doInstall(
     return { error: `Skill "${name}" already exists locally. Delete it first to reinstall.` };
   }
 
-  const url = toRawUrl(opts.marketUrl, `${name}/skill.md`);
+  const url = toRawUrl(opts.marketUrl, `${name}/skill.md`, opts.branch);
   const result = await opts.fetchFn(url);
 
   if (result.error) {
@@ -83,15 +84,17 @@ async function doInstall(
 
 export function createInstallOnlineSkillTool(opts: {
   marketUrl: string | undefined;
+  branch?: string;
   skillsDir: string;
   configPath: string;
   fetchFn: SimpleFetchFn;
 }) {
+  const resolved = { ...opts, branch: opts.branch ?? 'main' };
   return defineTool({
     name: 'install_online_skill' as const,
     description: 'Download and install a skill from the online skill market.',
     toolDescription: 'Download a skill from the online market and install it locally. The skill will be saved to the skills directory and registered in config. Use search_online_skill first to find available skills.',
     parameters,
-    execute: async ({ name }): Promise<InstallResult> => doInstall(name, opts),
+    execute: async ({ name }): Promise<InstallResult> => doInstall(name, resolved),
   });
 }

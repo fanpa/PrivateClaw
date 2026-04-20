@@ -77,15 +77,61 @@ LLM: → create_skill 호출
 
 ### Skill Market (온라인 스킬 저장소)
 
-원격 GitHub 리포지토리를 skill market으로 설정하면, 다른 사용자가 만든 스킬을 검색하고 설치할 수 있습니다.
+원격 **GitHub 리포지토리**를 skill market으로 설정하면, 다른 사용자가 만든 스킬을 검색하고 설치할 수 있습니다. `skillMarketUrl`은 **GitHub 스타일 URL만 지원**합니다 — 공개 github.com 또는 GitHub Enterprise(GHE) 인스턴스. 임의 정적 파일 서버는 지원 대상이 아닙니다.
 
 ```json
 {
-  "skillMarketUrl": "https://github.com/your-org/privateclaw-skills"
+  "skillMarketUrl": "https://github.com/your-org/privateclaw-skills",
+  "skillMarketBranch": "main"
 }
 ```
 
 LLM에게 "스킬 시장에서 jira 관련 스킬 찾아줘"처럼 요청하면 `search_online_skill`로 검색하고, `install_online_skill`로 로컬에 내려받습니다. 설치 후 `/reload`하면 바로 사용 가능합니다.
+
+**URL 해석 규칙** (자동 감지):
+
+| `skillMarketUrl` | 실제 raw 경로 |
+|--|--|
+| `https://github.com/owner/repo` | `https://raw.githubusercontent.com/owner/repo/{branch}/index.md` |
+| `https://github.company.com/owner/repo` (GHE) | `https://github.company.com/owner/repo/raw/{branch}/index.md` |
+
+`github.com` 호스트면 별도 raw 서브도메인(`raw.githubusercontent.com`)으로, 그 외 호스트에서 `{host}/{owner}/{repo}` 형식이면 GHE로 판단해 `/raw/` 서브패스로 요청합니다. GHE는 공개 github.com과 달리 raw 전용 서브도메인이 없어 같은 호스트에서 raw content를 제공합니다.
+
+**설정 옵션:**
+
+- **`skillMarketUrl`** (선택): 스킬 마켓 리포지토리 URL. `github.com` 또는 GHE 호스트의 `{scheme}://{host}/{owner}/{repo}` 형태.
+- **`skillMarketBranch`** (기본값: `"main"`): 기본 브랜치. `master` 기반 오래된 리포나 특정 릴리즈 브랜치를 쓸 경우 명시.
+
+**Private 리포지토리 인증:**
+
+private 리포는 `raw.githubusercontent.com`(공개 GitHub) 또는 GHE 호스트에 대해 Authorization 헤더가 필요합니다. `set_header` 툴이나 config의 `security.defaultHeaders`로 설정:
+
+```json
+{
+  "skillMarketUrl": "https://github.com/your-org/private-skills",
+  "security": {
+    "defaultHeaders": {
+      "raw.githubusercontent.com": {
+        "Authorization": "Bearer ghp_YourPersonalAccessToken"
+      }
+    }
+  }
+}
+```
+
+GHE private 리포라면 GHE 호스트를 키로 지정:
+
+```json
+"security": {
+  "defaultHeaders": {
+    "github.company.com": {
+      "Authorization": "Bearer <gheToken>"
+    }
+  }
+}
+```
+
+토큰 스코프는 `repo` 읽기 권한만 있으면 됩니다. 접근 실패 시 `search_online_skill` / `install_online_skill`이 명시적 에러 메시지로 원인을 돌려줍니다 (HTTP status + 설정 힌트).
 
 ### 도메인 화이트리스트 보안
 

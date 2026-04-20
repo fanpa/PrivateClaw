@@ -134,6 +134,7 @@ export function createApp(): Command {
           skills: config.skills,
           skillsDir: config.skillsDir,
           skillMarketUrl: config.skillMarketUrl,
+          skillMarketBranch: config.skillMarketBranch,
           skillMaxDepth: config.skillMaxDepth,
           sessionDir: config.session.sessionDir,
           specialists,
