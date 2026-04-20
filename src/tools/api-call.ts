@@ -1,6 +1,7 @@
 import { readFile } from 'fs/promises';
 import { basename, extname } from 'path';
 import { z } from 'zod';
+import { defineTool } from './define-tool.js';
 
 interface ApiCallResult {
   status?: number;
@@ -123,18 +124,10 @@ export function createApiCallTool(
   fetchFn: typeof globalThis.fetch,
   defaultHeaders: Record<string, Record<string, string>> = {},
 ) {
-  return {
+  return defineTool({
     name: 'api_call' as const,
     description: 'Make an HTTP API call with specified method, headers, and body. Supports GET, POST, PATCH, PUT, DELETE. Respects domain whitelist.',
-    tool: {
-      description: 'Make an HTTP API call with specified method, headers, and body. Supports GET, POST, PATCH, PUT, DELETE. Respects domain whitelist.',
-      inputSchema: parameters,
-      execute: async (input: z.infer<typeof parameters>): Promise<ApiCallResult> => {
-        return doApiCall(fetchFn, defaultHeaders, input);
-      },
-    },
-    execute: async (params: z.infer<typeof parameters>): Promise<ApiCallResult> => {
-      return doApiCall(fetchFn, defaultHeaders, params);
-    },
-  };
+    parameters,
+    execute: async (input): Promise<ApiCallResult> => doApiCall(fetchFn, defaultHeaders, input),
+  });
 }

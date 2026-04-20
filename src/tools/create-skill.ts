@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { defineTool } from './define-tool.js';
 
 interface CreateSkillResult {
   created?: boolean;
@@ -52,25 +53,13 @@ function doCreateSkill(
 }
 
 export function createCreateSkillTool(skillsDir: string, configPath: string) {
-  return {
+  return defineTool({
     name: 'create_skill' as const,
     description: 'Create a new skill by writing a skill.md file and registering it in the config.',
-    tool: {
-      description:
-        'Create a new skill. Writes a skill.md file to the skills directory and registers it in privateclaw.config.json. Use this when the user wants to create a new reusable workflow.',
-      inputSchema: parameters,
-      execute: async (
-        { name, description, content }: z.infer<typeof parameters>,
-      ): Promise<CreateSkillResult> => {
-        return doCreateSkill(name, description, content, skillsDir, configPath);
-      },
-    },
-    execute: async (params: {
-      name: string;
-      description: string;
-      content: string;
-    }): Promise<CreateSkillResult> => {
-      return doCreateSkill(params.name, params.description, params.content, skillsDir, configPath);
-    },
-  };
+    toolDescription:
+      'Create a new skill. Writes a skill.md file to the skills directory and registers it in privateclaw.config.json. Use this when the user wants to create a new reusable workflow.',
+    parameters,
+    execute: async ({ name, description, content }): Promise<CreateSkillResult> =>
+      doCreateSkill(name, description, content, skillsDir, configPath),
+  });
 }

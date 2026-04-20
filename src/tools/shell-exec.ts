@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { isCommandAllowed } from '../security/command-guard.js';
+import { defineTool } from './define-tool.js';
 
 interface ShellResult {
   stdout: string;
@@ -9,7 +10,14 @@ interface ShellResult {
   error?: string;
 }
 
-function executeShell(command: string, allowedCommands: string[], timeout?: number): ShellResult {
+const DEFAULT_TIMEOUT_MS = 30000;
+const KILL_GRACE_MS = 2000;
+
+async function executeShell(
+  command: string,
+  allowedCommands: string[],
+  timeout?: number,
+): Promise<ShellResult> {
   const check = isCommandAllowed(command, allowedCommands);
   if (!check.allowed) {
     return {
@@ -20,18 +28,56 @@ function executeShell(command: string, allowedCommands: string[], timeout?: numb
     };
   }
 
-  const shell = process.platform === 'win32' ? 'powershell.exe' : true;
-  const result = spawnSync(command, {
-    encoding: 'utf-8',
-    timeout: timeout ?? 30000,
-    shell,
-    stdio: ['pipe', 'pipe', 'pipe'],
+  const isWin = process.platform === 'win32';
+  const shellCmd = isWin ? 'powershell.exe' : '/bin/sh';
+  const shellArgs = isWin ? ['-NoProfile', '-Command', command] : ['-c', command];
+  const timeoutMs = timeout ?? DEFAULT_TIMEOUT_MS;
+
+  return new Promise<ShellResult>((resolve) => {
+    const child = spawn(shellCmd, shellArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+
+    let stdout = '';
+    let stderr = '';
+    let timedOut = false;
+    let settled = false;
+
+    const killTimer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      const hardKill = setTimeout(() => child.kill('SIGKILL'), KILL_GRACE_MS);
+      hardKill.unref();
+    }, timeoutMs);
+    killTimer.unref();
+
+    child.stdout?.setEncoding('utf-8');
+    child.stderr?.setEncoding('utf-8');
+    child.stdout?.on('data', (chunk: string) => { stdout += chunk; });
+    child.stderr?.on('data', (chunk: string) => { stderr += chunk; });
+
+    const finish = (result: ShellResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(killTimer);
+      resolve(result);
+    };
+
+    child.on('error', (err) => {
+      finish({ stdout, stderr, exitCode: 1, error: err.message });
+    });
+
+    child.on('close', (code, signal) => {
+      if (timedOut) {
+        finish({
+          stdout,
+          stderr,
+          exitCode: code ?? 1,
+          error: `Command timed out after ${timeoutMs}ms`,
+        });
+        return;
+      }
+      finish({ stdout, stderr, exitCode: code ?? (signal ? 1 : 0) });
+    });
   });
-  return {
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
-    exitCode: result.status ?? 1,
-  };
 }
 
 const parameters = z.object({
@@ -40,21 +86,13 @@ const parameters = z.object({
 });
 
 export function createShellExecTool(allowedCommands: string[] = []) {
-  return {
+  return defineTool({
     name: 'shell_exec' as const,
     description: 'Execute a shell command and return stdout, stderr, and exit code.',
-    tool: {
-      description: 'Execute a shell command and return stdout, stderr, and exit code.',
-      inputSchema: parameters,
-      execute: async ({ command, timeout }: z.infer<typeof parameters>): Promise<ShellResult> => {
-        return executeShell(command, allowedCommands, timeout);
-      },
-    },
-    execute: async (params: { command: string; timeout?: number }): Promise<ShellResult> => {
-      return executeShell(params.command, allowedCommands, params.timeout);
-    },
-  };
+    parameters,
+    execute: async ({ command, timeout }): Promise<ShellResult> =>
+      executeShell(command, allowedCommands, timeout),
+  });
 }
 
-// Keep backward-compatible export for existing tests
 export const shellExecTool = createShellExecTool();

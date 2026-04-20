@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { SessionRepository } from '../../src/session/repository.js';
-import { rmSync, existsSync, readFileSync } from 'node:fs';
+import { rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ModelMessage } from 'ai';
 
@@ -114,5 +114,73 @@ describe('SessionRepository (JSON)', () => {
     const index = JSON.parse(readFileSync(join(TEST_DIR, 'index.json'), 'utf-8'));
     expect(index).toHaveLength(1);
     expect(index[0].id).toBe(s1.id);
+  });
+
+  it('stores messages in a separate .messages.jsonl file', () => {
+    const session = repo.create('Jsonl Test');
+    repo.updateMessages(session.id, [
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'hi' },
+    ]);
+
+    const jsonlPath = join(TEST_DIR, `${session.id}.messages.jsonl`);
+    expect(existsSync(jsonlPath)).toBe(true);
+
+    const lines = readFileSync(jsonlPath, 'utf-8').split('\n').filter((l) => l.length > 0);
+    expect(lines).toHaveLength(2);
+
+    // Metadata file no longer carries full messages inline.
+    const meta = JSON.parse(readFileSync(join(TEST_DIR, `${session.id}.json`), 'utf-8'));
+    expect(meta.messages).toBeUndefined();
+  });
+
+  it('preserves large tool-result bodies through append/read roundtrip', () => {
+    const session = repo.create('Large Body');
+    const bigBody = 'x'.repeat(20000);
+    const msg: ModelMessage = {
+      role: 'tool',
+      content: [
+        {
+          type: 'tool-result',
+          toolCallId: 't1',
+          toolName: 'api_call',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          result: { body: bigBody } as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          output: { body: bigBody } as any,
+        },
+      ],
+    };
+    repo.appendMessages(session.id, [msg]);
+
+    const loaded = repo.getById(session.id);
+    expect(loaded!.messages).toHaveLength(1);
+    const loadedMsg = loaded!.messages[0];
+    expect(Array.isArray(loadedMsg.content)).toBe(true);
+    const part = (loadedMsg.content as Array<Record<string, unknown>>)[0];
+    expect((part.result as { body: string }).body.length).toBe(20000);
+  });
+
+  it('migrates legacy in-meta messages on first append', () => {
+    const session = repo.create('Legacy Migrate');
+    // Simulate a legacy session file: messages embedded in meta
+    const legacyMeta = {
+      id: session.id,
+      title: 'Legacy Migrate',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      messages: [{ role: 'user', content: 'old' }],
+    };
+    const metaPath = join(TEST_DIR, `${session.id}.json`);
+    // Remove new-format artifacts so we can test the legacy path cleanly.
+    rmSync(join(TEST_DIR, `${session.id}.messages.jsonl`), { force: true });
+    writeFileSync(metaPath, JSON.stringify(legacyMeta), 'utf-8');
+
+    repo.appendMessages(session.id, [{ role: 'assistant', content: 'new' }]);
+
+    const loaded = repo.getById(session.id);
+    expect(loaded!.messages).toHaveLength(2);
+    expect(loaded!.messages[0]).toEqual({ role: 'user', content: 'old' });
+    expect(loaded!.messages[1]).toEqual({ role: 'assistant', content: 'new' });
   });
 });

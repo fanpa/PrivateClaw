@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { defineTool } from './define-tool.js';
 
 interface SkillIndexEntry {
   name: string;
@@ -22,21 +23,16 @@ const parameters = z.object({
   query: z.string().optional().describe('Optional search keyword to filter skills by name or description'),
 });
 
-/**
- * Parse a markdown table from index.md into skill entries.
- * Expected format: | Name | Description |
- */
 export function parseSkillIndex(markdown: string): SkillIndexEntry[] {
   const lines = markdown.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('|'));
   const skills: SkillIndexEntry[] = [];
 
   for (const line of lines) {
-    // Skip header and separator rows
     if (line.includes('---')) continue;
     const cells = line.split('|').map((c) => c.trim()).filter((c) => c.length > 0);
     if (cells.length >= 2) {
       const name = cells[0].toLowerCase();
-      if (name === 'name') continue; // header row
+      if (name === 'name') continue;
       skills.push({ name: cells[0], description: cells[1] });
     }
   }
@@ -44,9 +40,6 @@ export function parseSkillIndex(markdown: string): SkillIndexEntry[] {
   return skills;
 }
 
-/**
- * Convert a GitHub repo URL to the raw content URL for a given path.
- */
 export function toRawUrl(repoUrl: string, path: string): string {
   const cleaned = repoUrl.replace(/\/$/, '');
   const match = cleaned.match(/github\.com\/([^/]+)\/([^/]+)/);
@@ -88,18 +81,11 @@ export function createSearchOnlineSkillTool(
   marketUrl: string | undefined,
   fetchFn: SimpleFetchFn,
 ) {
-  return {
+  return defineTool({
     name: 'search_online_skill' as const,
     description: 'Search for skills in the online skill market repository.',
-    tool: {
-      description: 'Search the online skill market for available skills. Returns a list of skill names and descriptions. Optionally filter by keyword.',
-      inputSchema: parameters,
-      execute: async ({ query }: z.infer<typeof parameters>): Promise<SearchResult> => {
-        return doSearch(marketUrl, fetchFn, query);
-      },
-    },
-    execute: async (params: { query?: string }): Promise<SearchResult> => {
-      return doSearch(marketUrl, fetchFn, params.query);
-    },
-  };
+    toolDescription: 'Search the online skill market for available skills. Returns a list of skill names and descriptions. Optionally filter by keyword.',
+    parameters,
+    execute: async ({ query }): Promise<SearchResult> => doSearch(marketUrl, fetchFn, query),
+  });
 }

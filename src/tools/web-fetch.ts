@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { defineTool } from './define-tool.js';
 
 interface WebFetchResult {
   status?: number;
@@ -25,18 +26,10 @@ const parameters = z.object({
 });
 
 export function createWebFetchTool(fetchFn: typeof globalThis.fetch) {
-  return {
+  return defineTool({
     name: 'web_fetch' as const,
     description: 'Fetch a URL and return the response body. Respects domain whitelist.',
-    tool: {
-      description: 'Fetch a URL and return the response body. Respects domain whitelist.',
-      inputSchema: parameters,
-      execute: async ({ url }: z.infer<typeof parameters>): Promise<WebFetchResult> => {
-        return doFetch(fetchFn, url);
-      },
-    },
-    execute: async (params: { url: string }): Promise<WebFetchResult> => {
-      return doFetch(fetchFn, params.url);
-    },
-  };
+    parameters,
+    execute: async ({ url }): Promise<WebFetchResult> => doFetch(fetchFn, url),
+  });
 }

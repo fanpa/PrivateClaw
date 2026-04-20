@@ -248,6 +248,58 @@ describe('runAgentTurn', () => {
     expect(sentMessages).toHaveLength(3);
   });
 
+  it('preserves full tool-result body in responseMessages even when context truncates', async () => {
+    const { streamText } = await import('ai');
+    const bigBody = 'x'.repeat(20000);
+
+    (streamText as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      fullStream: (async function* () {
+        yield { type: 'tool-call', toolName: 'api_call', input: { url: 'http://x' } };
+        yield { type: 'tool-result', toolName: 'api_call', output: { body: bigBody } };
+      })(),
+      response: Promise.resolve({
+        messages: [
+          {
+            role: 'assistant',
+            content: [{ type: 'tool-call', toolCallId: 'id1', toolName: 'api_call', args: { url: 'http://x' } }],
+          },
+          {
+            role: 'tool',
+            content: [{ type: 'tool-result', toolCallId: 'id1', result: { body: bigBody } }],
+          },
+        ],
+      }),
+    });
+
+    (streamText as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', text: 'done' };
+      })(),
+      response: Promise.resolve({ messages: [{ role: 'assistant', content: 'done' }] }),
+    });
+
+    const messages: ModelMessage[] = [{ role: 'user', content: 'fetch' }];
+    const result = await runAgentTurn({ messages, model: {} as any });
+
+    // The tool-result in responseMessages (what gets saved) must retain the full body.
+    const toolMsg = result.responseMessages.find(
+      (m) => m.role === 'tool' && Array.isArray(m.content),
+    );
+    expect(toolMsg).toBeDefined();
+    const part = (toolMsg!.content as Array<Record<string, unknown>>)[0];
+    const body = (part.result as { body: string }).body;
+    expect(body.length).toBe(20000);
+    expect(body).not.toContain('[truncated]');
+
+    // The LLM context for step 2 should be truncated.
+    const step2Messages = (streamText as ReturnType<typeof vi.fn>).mock.calls[1][0].messages as ModelMessage[];
+    const truncatedTool = step2Messages.find(
+      (m) => m.role === 'tool' && Array.isArray(m.content),
+    );
+    const truncatedBody = ((truncatedTool!.content as Array<Record<string, unknown>>)[0].result as { body: string }).body;
+    expect(truncatedBody).toContain('[truncated]');
+  });
+
   it('issues a separate streamText call per step to prevent TypeError: terminated on connection reuse', async () => {
     const { streamText } = await import('ai');
 

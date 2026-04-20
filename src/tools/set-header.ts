@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { defineTool } from './define-tool.js';
 
 interface SetHeaderResult {
   success?: boolean;
@@ -29,7 +30,6 @@ function doSetHeader(
     if (!config.security.defaultHeaders) config.security.defaultHeaders = {};
     if (!config.security.defaultHeaders[domain]) config.security.defaultHeaders[domain] = {};
 
-    // Merge headers (new values override existing)
     for (const [key, value] of Object.entries(headers)) {
       config.security.defaultHeaders[domain][key] = value;
     }
@@ -42,18 +42,12 @@ function doSetHeader(
 }
 
 export function createSetHeaderTool(configPath: string) {
-  return {
+  return defineTool({
     name: 'set_header' as const,
     description: 'Set default HTTP headers for a domain in the config. Headers are used by api_call and web_fetch.',
-    tool: {
-      description: 'Set default HTTP headers for a domain. These headers are automatically injected into api_call and web_fetch requests to that domain. Use this to set Authorization tokens, User-Agent, Cookie, or any custom headers. Call reload_config after to apply changes.',
-      inputSchema: parameters,
-      execute: async ({ domain, headers }: z.infer<typeof parameters>): Promise<SetHeaderResult> => {
-        return doSetHeader(domain, headers, configPath);
-      },
-    },
-    execute: async (params: { domain: string; headers: Record<string, string> }): Promise<SetHeaderResult> => {
-      return doSetHeader(params.domain, params.headers, configPath);
-    },
-  };
+    toolDescription: 'Set default HTTP headers for a domain. These headers are automatically injected into api_call and web_fetch requests to that domain. Use this to set Authorization tokens, User-Agent, Cookie, or any custom headers. Call reload_config after to apply changes.',
+    parameters,
+    execute: async ({ domain, headers }): Promise<SetHeaderResult> =>
+      doSetHeader(domain, headers, configPath),
+  });
 }
