@@ -7,6 +7,8 @@ import { buildContextSummary } from './context-summary.js';
 import type { PreReflectResult } from '../tools/registry.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
+import { buildActiveSkillSystemText } from '../skills/state.js';
+import type { SkillStateManager } from '../skills/state.js';
 
 export const DEFAULT_MAX_HISTORY = 20;
 const TOOL_RESULT_BODY_LIMIT = 10000;
@@ -23,6 +25,7 @@ export interface RunAgentTurnOptions {
   defaultHeaders?: Record<string, Record<string, string>>;
   skills?: SkillConfig[];
   skillsDir?: string;
+  skillManager?: SkillStateManager;
   allowedCommands?: string[];
   configPath?: string;
   skillMarketUrl?: string;
@@ -112,7 +115,11 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   } = options;
 
   const specialistRoles = options.specialists?.map((s) => s.role) ?? [];
-  const effectivePrompt = systemPrompt ?? buildSystemPrompt(options.skills, specialistRoles);
+  const basePrompt = systemPrompt ?? buildSystemPrompt(options.skills, specialistRoles);
+  const stackFrames = options.skillManager?.frames() ?? [];
+  const effectivePrompt = stackFrames.length > 0
+    ? basePrompt + buildActiveSkillSystemText(stackFrames)
+    : basePrompt;
   const effectiveModel = model ?? getModel();
   const loops = options.reflectionLoops ?? 0;
   const maxHistory = options.maxHistoryMessages ?? DEFAULT_MAX_HISTORY;
@@ -122,7 +129,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
   const preReflectCallback = loops > 0
     ? async (toolName: string, args: unknown): Promise<PreReflectResult> => {
         const skillList = options.skills?.map((s) => `${s.name}: ${s.description}`).join('\n') ?? 'none';
-        const contextSummary = buildContextSummary(currentMessages);
+        const contextSummary = buildContextSummary(currentMessages, options.skillManager?.names());
         try {
           const result = await generateText({
             model: effectiveModel,
@@ -153,6 +160,7 @@ export async function runAgentTurn(options: RunAgentTurnOptions): Promise<AgentT
     allowedCommands: options.allowedCommands,
     skills: options.skills,
     skillsDir: options.skillsDir,
+    skillManager: options.skillManager,
     configPath: options.configPath,
     specialists: options.specialists,
     onReload: options.onReload,

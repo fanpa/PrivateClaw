@@ -5,6 +5,7 @@ import { createShellExecTool } from './shell-exec.js';
 import { createWebFetchTool } from './web-fetch.js';
 import { createApiCallTool } from './api-call.js';
 import { createUseSkillTool } from './use-skill.js';
+import { createExitSkillTool } from './exit-skill.js';
 import { createCreateSkillTool } from './create-skill.js';
 import { createSetHeaderTool } from './set-header.js';
 import { createReloadConfigTool } from './reload-config.js';
@@ -17,6 +18,7 @@ import { createDelegateTool } from './delegate.js';
 import type { SpecialistEntry } from './delegate.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
+import type { SkillStateManager } from '../skills/state.js';
 
 export interface PreReflectResult {
   proceed: boolean;
@@ -37,17 +39,18 @@ export interface BuiltinToolsOptions {
   allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
   generateDescription?: (content: string) => Promise<string>;
+  skillManager?: SkillStateManager;
 }
 
 // Tools that skip pre-reflection (low-risk or meta tools)
 const SKIP_PRE_REFLECT = new Set([
-  'use_skill', 'reload_config', 'sync_skills', 'file_read',
+  'use_skill', 'exit_skill', 'reload_config', 'sync_skills', 'file_read',
 ]);
 
 // Tools that skip approval prompts (meta/read-only tools that don't touch
 // user files, shell, or the network).
 const SKIP_APPROVAL = new Set([
-  'use_skill', 'reload_config', 'sync_skills',
+  'use_skill', 'exit_skill', 'reload_config', 'sync_skills',
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,9 +106,11 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     [apiCall.name]: apiCall.tool,
   };
 
-  if (options.skills && options.skills.length > 0) {
-    const useSkill = createUseSkillTool(options.skills, options.skillsDir ?? './skills');
+  if (options.skills && options.skills.length > 0 && options.skillManager) {
+    const useSkill = createUseSkillTool(options.skills, options.skillsDir ?? './skills', options.skillManager);
     tools[useSkill.name] = useSkill.tool;
+    const exitSkill = createExitSkillTool(options.skillManager);
+    tools[exitSkill.name] = exitSkill.tool;
   }
 
   if (options.configPath) {

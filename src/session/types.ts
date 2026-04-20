@@ -6,4 +6,5 @@ export interface Session {
   messages: ModelMessage[];
   createdAt: string;
   updatedAt: string;
+  activeSkillNames?: string[];
 }

@@ -161,6 +161,29 @@ describe('SessionRepository (JSON)', () => {
     expect((part.result as { body: string }).body.length).toBe(20000);
   });
 
+  it('persists and restores activeSkillNames', () => {
+    const session = repo.create('With Skills');
+    repo.updateActiveSkills(session.id, ['parent', 'child']);
+
+    const loaded = repo.getById(session.id);
+    expect(loaded?.activeSkillNames).toEqual(['parent', 'child']);
+
+    repo.updateActiveSkills(session.id, []);
+    const cleared = repo.getById(session.id);
+    expect(cleared?.activeSkillNames).toBeUndefined();
+  });
+
+  it('updateActiveSkills bumps updatedAt so the index can re-sort', () => {
+    const session = repo.create('Bump Test');
+    const before = session.updatedAt;
+    // force a clock tick
+    const now = Date.now();
+    while (Date.now() === now) { /* spin */ }
+    repo.updateActiveSkills(session.id, ['x']);
+    const loaded = repo.getById(session.id);
+    expect(loaded!.updatedAt > before).toBe(true);
+  });
+
   it('migrates legacy in-meta messages on first append', () => {
     const session = repo.create('Legacy Migrate');
     // Simulate a legacy session file: messages embedded in meta
