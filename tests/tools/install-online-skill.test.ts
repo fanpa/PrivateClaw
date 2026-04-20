@@ -68,7 +68,34 @@ describe('createInstallOnlineSkillTool', () => {
     });
 
     const result = await tool.execute({ name: 'nonexistent' });
-    expect(result.error).toContain('Failed');
+    expect(result.error).toContain('Cannot reach skill market');
+    expect(result.error).toContain('Not found');
+  });
+
+  it('surfaces HTTP 404 with a clear message (not silently empty)', async () => {
+    const tool = createInstallOnlineSkillTool({
+      marketUrl: 'https://github.com/owner/repo',
+      skillsDir: SKILLS_DIR,
+      configPath: CONFIG_PATH,
+      fetchFn: async () => ({ status: 404, body: '404: Not Found' }),
+    });
+    const result = await tool.execute({ name: 'missing-skill' });
+    expect(result.error).toContain('HTTP 404');
+    expect(result.error).toContain('Cannot download');
+    // Should NOT create a folder or write a file on failure.
+    expect(existsSync(join(SKILLS_DIR, 'missing-skill'))).toBe(false);
+  });
+
+  it('mentions set_header hint on 403 (private repo likely)', async () => {
+    const tool = createInstallOnlineSkillTool({
+      marketUrl: 'https://github.com/owner/private-repo',
+      skillsDir: SKILLS_DIR,
+      configPath: CONFIG_PATH,
+      fetchFn: async () => ({ status: 403, body: '' }),
+    });
+    const result = await tool.execute({ name: 'some-skill' });
+    expect(result.error).toContain('HTTP 403');
+    expect(result.error).toContain('set_header');
   });
 
   it('does not overwrite existing skill', async () => {

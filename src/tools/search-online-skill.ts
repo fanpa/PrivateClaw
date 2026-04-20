@@ -61,8 +61,19 @@ async function doSearch(
   const indexUrl = toRawUrl(marketUrl, 'index.md');
   const result = await fetchFn(indexUrl);
 
-  if (result.error || !result.body) {
-    return { error: `Failed to fetch skill index: ${result.error ?? 'empty response'}` };
+  if (result.error) {
+    return { error: `Cannot reach skill market at ${indexUrl}: ${result.error}` };
+  }
+  if (result.status !== undefined && (result.status < 200 || result.status >= 300)) {
+    return {
+      error:
+        `Cannot reach skill market at ${indexUrl}: HTTP ${result.status}. ` +
+        `Verify skillMarketUrl points to a repository that has index.md on the main branch. ` +
+        `If the repository is private, use set_header to add an Authorization header for raw.githubusercontent.com.`,
+    };
+  }
+  if (!result.body) {
+    return { error: `Skill market at ${indexUrl} returned an empty response.` };
   }
 
   let skills = parseSkillIndex(result.body);

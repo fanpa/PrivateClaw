@@ -85,4 +85,47 @@ describe('createSearchOnlineSkillTool', () => {
     expect(result.skills).toHaveLength(1);
     expect(result.skills![0].name).toBe('jira-export');
   });
+
+  it('surfaces HTTP 404 as an explicit unreachable-market error', async () => {
+    const tool = createSearchOnlineSkillTool(
+      'https://github.com/owner/missing',
+      async () => ({ status: 404, body: '404: Not Found' }),
+    );
+    const result = await tool.execute({});
+    expect(result.skills).toBeUndefined();
+    expect(result.error).toContain('Cannot reach skill market');
+    expect(result.error).toContain('HTTP 404');
+    expect(result.error).toContain('main branch');
+  });
+
+  it('mentions set_header hint on 403 (private repo likely)', async () => {
+    const tool = createSearchOnlineSkillTool(
+      'https://github.com/owner/private-repo',
+      async () => ({ status: 403, body: '' }),
+    );
+    const result = await tool.execute({});
+    expect(result.error).toContain('HTTP 403');
+    expect(result.error).toContain('set_header');
+    expect(result.error).toContain('Authorization');
+  });
+
+  it('surfaces fetch error field', async () => {
+    const tool = createSearchOnlineSkillTool(
+      'https://github.com/owner/repo',
+      async () => ({ error: 'network timeout' }),
+    );
+    const result = await tool.execute({});
+    expect(result.error).toContain('Cannot reach skill market');
+    expect(result.error).toContain('network timeout');
+  });
+
+  it('surfaces empty 200 body as error (so we do not return misleading empty list)', async () => {
+    const tool = createSearchOnlineSkillTool(
+      'https://github.com/owner/repo',
+      async () => ({ status: 200, body: '' }),
+    );
+    const result = await tool.execute({});
+    expect(result.skills).toBeUndefined();
+    expect(result.error).toContain('empty response');
+  });
 });
