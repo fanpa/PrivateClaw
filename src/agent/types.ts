@@ -97,16 +97,17 @@ You will receive the tool name, arguments, available skills, and current convers
 
 Check:
 1. If an active skill is loaded and the tool call is part of that skill's workflow, ALLOW it.
-2. If NO active skill is loaded and a matching skill exists, REJECT and suggest using the skill.
+2. If NO active skill is loaded and a matching skill exists, REJECT with an explicit instruction to call use_skill first.
 3. Are the parameters correct? (e.g. correct file path, valid URL, proper method)
 4. Is this the right tool for the task?
 
 If WRONG, reply: REJECT: (reason)
+For skill-related rejections (rule 2), you MUST include the exact use_skill call in your rejection message so the AI knows precisely what to do next. Example: "REJECT: Call use_skill('jira-export') first, then retry this tool."
 If CORRECT, reply with a single sentence explaining what this tool call will do, in the user's language.
 Examples:
 - "Jira API에서 오늘 업데이트된 이슈를 조회합니다."
 - "파일 내용을 수정하기 위해 현재 내용을 확인합니다."
-- "REJECT: jira-export 스킬을 사용해야 합니다."
+- "REJECT: Call use_skill('jira-export') first, then retry this tool."
 - "REJECT: 상대 경로 사용 — 먼저 pwd로 현재 위치를 확인해야 합니다."`;
 
 
