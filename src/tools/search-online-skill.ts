@@ -40,25 +40,45 @@ export function parseSkillIndex(markdown: string): SkillIndexEntry[] {
   return skills;
 }
 
-export function toRawUrl(repoUrl: string, path: string): string {
+/**
+ * Convert a repo URL to a raw-content URL for a given path.
+ *
+ * - `github.com`: returns `https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}`
+ * - GitHub Enterprise (any host other than github.com with a `{host}/{owner}/{repo}`
+ *   structure): returns `{host}/{owner}/{repo}/raw/{branch}/{path}` — GHE has no
+ *   separate raw subdomain and instead serves raw content on the same host.
+ * - Any other shape (e.g. a static HTTP server at an arbitrary path) falls back
+ *   to `{url}/{path}` so existing non-GitHub setups still work.
+ *
+ * The branch defaults to `main` and can be overridden via config.
+ */
+export function toRawUrl(repoUrl: string, path: string, branch: string = 'main'): string {
   const cleaned = repoUrl.replace(/\/$/, '');
-  const match = cleaned.match(/github\.com\/([^/]+)\/([^/]+)/);
-  if (match) {
-    return `https://raw.githubusercontent.com/${match[1]}/${match[2]}/main/${path}`;
+
+  const githubCom = cleaned.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)/);
+  if (githubCom) {
+    return `https://raw.githubusercontent.com/${githubCom[1]}/${githubCom[2]}/${branch}/${path}`;
   }
+
+  const gheLike = cleaned.match(/^(https?:\/\/[^/]+)\/([^/]+)\/([^/]+)$/);
+  if (gheLike) {
+    return `${gheLike[1]}/${gheLike[2]}/${gheLike[3]}/raw/${branch}/${path}`;
+  }
+
   return `${cleaned}/${path}`;
 }
 
 async function doSearch(
   marketUrl: string | undefined,
   fetchFn: SimpleFetchFn,
+  branch: string,
   query?: string,
 ): Promise<SearchResult> {
   if (!marketUrl) {
     return { error: 'Skill market URL is not configured. Set skillMarketUrl in config file.' };
   }
 
-  const indexUrl = toRawUrl(marketUrl, 'index.md');
+  const indexUrl = toRawUrl(marketUrl, 'index.md', branch);
   const result = await fetchFn(indexUrl);
 
   if (result.error) {
@@ -91,12 +111,13 @@ async function doSearch(
 export function createSearchOnlineSkillTool(
   marketUrl: string | undefined,
   fetchFn: SimpleFetchFn,
+  branch: string = 'main',
 ) {
   return defineTool({
     name: 'search_online_skill' as const,
     description: 'Search for skills in the online skill market repository.',
     toolDescription: 'Search the online skill market for available skills. Returns a list of skill names and descriptions. Optionally filter by keyword.',
     parameters,
-    execute: async ({ query }): Promise<SearchResult> => doSearch(marketUrl, fetchFn, query),
+    execute: async ({ query }): Promise<SearchResult> => doSearch(marketUrl, fetchFn, branch, query),
   });
 }

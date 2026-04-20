@@ -31,7 +31,7 @@ describe('parseSkillIndex', () => {
 });
 
 describe('toRawUrl', () => {
-  it('converts github repo URL to raw URL', () => {
+  it('converts github.com repo URL to raw.githubusercontent.com', () => {
     expect(toRawUrl('https://github.com/owner/repo', 'index.md'))
       .toBe('https://raw.githubusercontent.com/owner/repo/main/index.md');
   });
@@ -41,9 +41,44 @@ describe('toRawUrl', () => {
       .toBe('https://raw.githubusercontent.com/owner/repo/main/skill/skill.md');
   });
 
-  it('falls back for non-github URLs', () => {
+  it('uses custom branch for github.com when provided', () => {
+    expect(toRawUrl('https://github.com/owner/repo', 'index.md', 'develop'))
+      .toBe('https://raw.githubusercontent.com/owner/repo/develop/index.md');
+  });
+
+  it('converts GHE URL to same-host /raw/ pattern', () => {
+    expect(toRawUrl('https://github.company.com/team/repo', 'index.md'))
+      .toBe('https://github.company.com/team/repo/raw/main/index.md');
+  });
+
+  it('supports GHE URL with custom branch', () => {
+    expect(toRawUrl('https://ghe.internal.corp/foo/bar', 'skill/skill.md', 'release'))
+      .toBe('https://ghe.internal.corp/foo/bar/raw/release/skill/skill.md');
+  });
+
+  it('supports GHE URL with port', () => {
+    expect(toRawUrl('https://ghe.internal.corp:8443/team/repo', 'index.md'))
+      .toBe('https://ghe.internal.corp:8443/team/repo/raw/main/index.md');
+  });
+
+  it('supports GHE URL over http', () => {
+    expect(toRawUrl('http://ghe.internal.corp/team/repo', 'index.md'))
+      .toBe('http://ghe.internal.corp/team/repo/raw/main/index.md');
+  });
+
+  it('strips trailing slash from GHE URL', () => {
+    expect(toRawUrl('https://ghe.internal.corp/team/repo/', 'index.md'))
+      .toBe('https://ghe.internal.corp/team/repo/raw/main/index.md');
+  });
+
+  it('falls back for single-segment URLs (not github-like)', () => {
     expect(toRawUrl('https://custom.com/skills', 'index.md'))
       .toBe('https://custom.com/skills/index.md');
+  });
+
+  it('falls back for URLs with 3+ path segments', () => {
+    expect(toRawUrl('https://custom.com/a/b/c', 'index.md'))
+      .toBe('https://custom.com/a/b/c/index.md');
   });
 });
 
@@ -127,5 +162,32 @@ describe('createSearchOnlineSkillTool', () => {
     const result = await tool.execute({});
     expect(result.skills).toBeUndefined();
     expect(result.error).toContain('empty response');
+  });
+
+  it('fetches from GHE raw path when given a GHE URL', async () => {
+    const fetched: string[] = [];
+    const tool = createSearchOnlineSkillTool(
+      'https://ghe.internal.corp/team/repo',
+      async (url) => {
+        fetched.push(url);
+        return { status: 200, body: '| Name | Description |\n|---|---|\n| a | b |' };
+      },
+    );
+    await tool.execute({});
+    expect(fetched).toEqual(['https://ghe.internal.corp/team/repo/raw/main/index.md']);
+  });
+
+  it('uses the provided branch for the raw URL', async () => {
+    const fetched: string[] = [];
+    const tool = createSearchOnlineSkillTool(
+      'https://github.com/owner/repo',
+      async (url) => {
+        fetched.push(url);
+        return { status: 200, body: '| Name | Description |\n|---|---|\n| a | b |' };
+      },
+      'develop',
+    );
+    await tool.execute({});
+    expect(fetched).toEqual(['https://raw.githubusercontent.com/owner/repo/develop/index.md']);
   });
 });

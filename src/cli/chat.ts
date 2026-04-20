@@ -95,6 +95,7 @@ export interface ChatOptions {
   skills?: SkillConfig[];
   skillsDir?: string;
   skillMarketUrl?: string;
+  skillMarketBranch?: string;
   skillMaxDepth?: number;
   sessionDir?: string;
   specialists?: import('../tools/delegate.js').SpecialistEntry[];
@@ -112,6 +113,7 @@ function mergeConfigIntoOptions(options: ChatOptions, config: Config): ChatOptio
     skills: config.skills,
     skillsDir: config.skillsDir,
     skillMarketUrl: config.skillMarketUrl,
+    skillMarketBranch: config.skillMarketBranch,
     skillMaxDepth: config.skillMaxDepth,
     sessionDir: config.session.sessionDir,
   };
@@ -288,6 +290,7 @@ export async function startChat(
           skillsDir: currentOptions.skillsDir,
           skillManager,
           skillMarketUrl: currentOptions.skillMarketUrl,
+          skillMarketBranch: currentOptions.skillMarketBranch,
           configPath: currentOptions.configPath,
           specialists: currentOptions.specialists,
           onReload: async () => (await reloadCurrentConfig()).error ?? null,

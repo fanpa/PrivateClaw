@@ -36,6 +36,7 @@ export interface BuiltinToolsOptions {
   onApproval?: (toolName: string, args: unknown) => Promise<ApprovalDecision>;
   onPreReflect?: (toolName: string, args: unknown) => Promise<PreReflectResult>;
   skillMarketUrl?: string;
+  skillMarketBranch?: string;
   allowedCommands?: string[];
   onBeforeToolExecute?: () => Promise<void>;
   generateDescription?: (content: string) => Promise<string>;
@@ -140,11 +141,13 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
       }
     };
 
-    const searchOnlineSkill = createSearchOnlineSkillTool(options.skillMarketUrl, marketFetch);
+    const marketBranch = options.skillMarketBranch ?? 'main';
+    const searchOnlineSkill = createSearchOnlineSkillTool(options.skillMarketUrl, marketFetch, marketBranch);
     tools[searchOnlineSkill.name] = searchOnlineSkill.tool;
 
     const installOnlineSkill = createInstallOnlineSkillTool({
       marketUrl: options.skillMarketUrl,
+      branch: marketBranch,
       skillsDir: options.skillsDir ?? './skills',
       configPath: options.configPath,
       fetchFn: marketFetch,

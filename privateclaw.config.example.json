@@ -27,6 +27,9 @@
     }
   ],
   "skillsDir": "./skills",
+  "skillMarketUrl": "https://github.com/your-org/privateclaw-skills",
+  "skillMarketBranch": "main",
+  "skillMaxDepth": 5,
   "specialists": [
     {
       "role": "reasoning",
