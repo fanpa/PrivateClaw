@@ -11,6 +11,7 @@ import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
 import { SkillStateManager } from '../skills/state.js';
 import { loadSkillContent } from '../skills/loader.js';
+import { normalizeApprovalChoice } from './input-normalize.js';
 import {
   renderNewLine,
   renderError,
@@ -56,7 +57,7 @@ export function createApprovalHandler(
     renderApprovalPrompt(toolName, args);
     return new Promise((resolve) => {
       rl.question('', (answer) => {
-        const choice = answer.trim().toLowerCase();
+        const choice = normalizeApprovalChoice(answer);
         let decision: ApprovalDecision;
         if (choice === 'a') {
           decision = 'allow_always';
