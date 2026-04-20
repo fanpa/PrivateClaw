@@ -38,8 +38,19 @@ async function doInstall(
   const url = toRawUrl(opts.marketUrl, `${name}/skill.md`);
   const result = await opts.fetchFn(url);
 
-  if (result.error || !result.body) {
-    return { error: `Failed to download skill "${name}": ${result.error ?? 'empty response'}` };
+  if (result.error) {
+    return { error: `Cannot reach skill market at ${url}: ${result.error}` };
+  }
+  if (result.status !== undefined && (result.status < 200 || result.status >= 300)) {
+    return {
+      error:
+        `Cannot download skill "${name}" from ${url}: HTTP ${result.status}. ` +
+        `Verify the skill exists at that path in the market repository. ` +
+        `If the repository is private, use set_header to add an Authorization header for raw.githubusercontent.com.`,
+    };
+  }
+  if (!result.body) {
+    return { error: `Skill "${name}" at ${url} returned an empty response.` };
   }
 
   mkdirSync(skillDir, { recursive: true });
