@@ -8,9 +8,14 @@ import type { ModelMessage } from 'ai';
  *   User request: "..."
  *   Active skill: skill-name (or "none")
  *   Recent tools: tool1(summary) → tool2(summary)
+ *
+ * `activeSkillStack` — when provided, reflects authoritative agent state
+ * (the skill-stack manager) and takes precedence over message scanning.
  */
-export function buildContextSummary(messages: ModelMessage[]): string {
-  if (messages.length === 0) return 'No context available.';
+export function buildContextSummary(messages: ModelMessage[], activeSkillStack?: readonly string[]): string {
+  if (messages.length === 0 && (!activeSkillStack || activeSkillStack.length === 0)) {
+    return 'No context available.';
+  }
 
   // 1. Last user message
   let lastUserMessage = '';
@@ -22,21 +27,27 @@ export function buildContextSummary(messages: ModelMessage[]): string {
     }
   }
 
-  // 2. Detect active skill (most recent use_skill call)
+  // 2. Active skill — prefer authoritative stack; fall back to message scan.
   let activeSkill = 'none';
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role === 'assistant' && Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        const p = part as Record<string, unknown>;
-        if (p.type === 'tool-call' && p.toolName === 'use_skill') {
-          const args = p.args as Record<string, unknown> | undefined;
-          if (args?.name) {
-            activeSkill = String(args.name);
+  if (activeSkillStack && activeSkillStack.length > 0) {
+    activeSkill = activeSkillStack.length === 1
+      ? activeSkillStack[0]
+      : `${activeSkillStack[activeSkillStack.length - 1]} (stack: ${activeSkillStack.join(' → ')})`;
+  } else {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          const p = part as Record<string, unknown>;
+          if (p.type === 'tool-call' && p.toolName === 'use_skill') {
+            const args = p.args as Record<string, unknown> | undefined;
+            if (args?.name) {
+              activeSkill = String(args.name);
+            }
           }
         }
+        if (activeSkill !== 'none') break;
       }
-      if (activeSkill !== 'none') break;
     }
   }
 

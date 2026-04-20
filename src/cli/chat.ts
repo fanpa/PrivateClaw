@@ -9,6 +9,8 @@ import { initFromConfig } from './app.js';
 import { ToolApprovalManager } from '../approval/manager.js';
 import type { ApprovalDecision } from '../approval/types.js';
 import type { SkillConfig } from '../skills/types.js';
+import { SkillStateManager } from '../skills/state.js';
+import { loadSkillContent } from '../skills/loader.js';
 import {
   renderNewLine,
   renderError,
@@ -92,6 +94,7 @@ export interface ChatOptions {
   skills?: SkillConfig[];
   skillsDir?: string;
   skillMarketUrl?: string;
+  skillMaxDepth?: number;
   sessionDir?: string;
   specialists?: import('../tools/delegate.js').SpecialistEntry[];
 }
@@ -108,6 +111,7 @@ function mergeConfigIntoOptions(options: ChatOptions, config: Config): ChatOptio
     skills: config.skills,
     skillsDir: config.skillsDir,
     skillMarketUrl: config.skillMarketUrl,
+    skillMaxDepth: config.skillMaxDepth,
     sessionDir: config.session.sessionDir,
   };
 }
@@ -132,8 +136,31 @@ export async function startChat(
 
   const messages: ModelMessage[] = [...session.messages];
 
+  const skillManager = new SkillStateManager(currentOptions.skillMaxDepth ?? 5);
+  if (session.activeSkillNames && session.activeSkillNames.length > 0) {
+    const dir = currentOptions.skillsDir ?? './skills';
+    skillManager.restore(session.activeSkillNames, (name) => {
+      try {
+        return loadSkillContent(name, dir);
+      } catch {
+        return null;
+      }
+    });
+  }
+
+  const syncSkillState = (): void => {
+    try {
+      repo.updateActiveSkills(session!.id, skillManager.names());
+    } catch {
+      // best-effort persistence; session file may be transient in tests
+    }
+  };
+
   renderWelcome();
   renderSessionInfo(session.id, getProviderName());
+  if (skillManager.depth() > 0) {
+    renderSystemMessage(`Active skill stack: ${skillManager.names().join(' → ')}`);
+  }
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -194,17 +221,53 @@ export async function startChat(
 
       if (trimmed === '/clear') {
         messages.length = 0;
-        renderSystemMessage('Conversation history cleared.');
+        skillManager.clear();
+        syncSkillState();
+        renderSystemMessage('Conversation history and skill stack cleared.');
+        continue;
+      }
+
+      if (trimmed === '/skill' || trimmed.startsWith('/skill ')) {
+        const sub = trimmed.slice('/skill'.length).trim();
+        if (sub === '' || sub === 'list') {
+          if (skillManager.depth() === 0) {
+            renderSystemMessage('No active skill.');
+          } else {
+            renderSystemMessage(`Active skill stack (${skillManager.depth()}/${skillManager.limit()}):`);
+            skillManager.frames().forEach((f, i) => {
+              const marker = i === skillManager.depth() - 1 ? '→' : ' ';
+              renderSystemMessage(`  ${marker} ${f.name}`);
+            });
+          }
+        } else if (sub === 'pop') {
+          const popped = skillManager.pop();
+          if (!popped) {
+            renderSystemMessage('No active skill to pop.');
+          } else {
+            const current = skillManager.top();
+            renderSystemMessage(`Popped "${popped.name}".` + (current ? ` Now active: "${current.name}".` : ' No skill active.'));
+            syncSkillState();
+          }
+        } else if (sub === 'clear') {
+          skillManager.clear();
+          syncSkillState();
+          renderSystemMessage('Skill stack cleared.');
+        } else {
+          renderSystemMessage('Usage: /skill [list|pop|clear]');
+        }
         continue;
       }
 
       if (trimmed === '/help') {
         renderSystemMessage('Available commands:');
-        renderSystemMessage('  /domains  — Show allowed domains');
-        renderSystemMessage('  /reload   — Reload config file');
-        renderSystemMessage('  /clear    — Clear conversation history');
-        renderSystemMessage('  /help     — Show this help');
-        renderSystemMessage('  /quit     — Exit');
+        renderSystemMessage('  /domains         — Show allowed domains');
+        renderSystemMessage('  /reload          — Reload config file');
+        renderSystemMessage('  /skill [list]    — Show active skill stack');
+        renderSystemMessage('  /skill pop       — Pop top skill off the stack');
+        renderSystemMessage('  /skill clear     — Clear the entire skill stack');
+        renderSystemMessage('  /clear           — Clear conversation history + skill stack');
+        renderSystemMessage('  /help            — Show this help');
+        renderSystemMessage('  /quit            — Exit');
         continue;
       }
 
@@ -212,6 +275,7 @@ export async function startChat(
 
       try {
         const approval = createApprovalHandler(rl, approvalManager);
+        const stackBefore = skillManager.names().join('|');
         const result = await runAgentTurn({
           messages,
           temperature: currentOptions.temperature,
@@ -221,6 +285,7 @@ export async function startChat(
           allowedCommands: currentOptions.allowedCommands,
           skills: currentOptions.skills,
           skillsDir: currentOptions.skillsDir,
+          skillManager,
           skillMarketUrl: currentOptions.skillMarketUrl,
           configPath: currentOptions.configPath,
           specialists: currentOptions.specialists,
@@ -259,6 +324,10 @@ export async function startChat(
         const maxHistory = currentOptions.maxHistoryMessages ?? DEFAULT_MAX_HISTORY;
         if (maxHistory > 0 && messages.length > maxHistory) {
           messages.splice(0, messages.length - maxHistory);
+        }
+
+        if (skillManager.names().join('|') !== stackBefore) {
+          syncSkillState();
         }
       } catch (err) {
         renderErrorWithStack(err);

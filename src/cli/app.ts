@@ -134,6 +134,7 @@ export function createApp(): Command {
           skills: config.skills,
           skillsDir: config.skillsDir,
           skillMarketUrl: config.skillMarketUrl,
+          skillMaxDepth: config.skillMaxDepth,
           sessionDir: config.session.sessionDir,
           specialists,
         });
@@ -226,6 +227,7 @@ export function createApp(): Command {
           allowedCommands: config.security.allowedCommands,
           skills: config.skills,
           skillsDir: config.skillsDir,
+          skillMaxDepth: config.skillMaxDepth,
           specialists: runSpecialists,
         });
 

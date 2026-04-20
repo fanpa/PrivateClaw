@@ -78,6 +78,8 @@ function describeToolCall(toolName: string, args: unknown): string {
     }
     case 'use_skill':
       return `Loading skill "${a?.name ?? ''}"`;
+    case 'exit_skill':
+      return 'Exiting current skill';
     case 'create_skill':
       return `Creating skill "${a?.name ?? ''}"`;
     case 'set_header':
@@ -175,12 +177,28 @@ export function renderToolResult(toolName: string, result: unknown): void {
 
   const res = result as Record<string, unknown> | undefined;
 
-  // use_skill: compact summary
+  // use_skill: compact summary, including resulting stack if provided
   if (toolName === 'use_skill') {
     if (res?.error) {
       console.log(chalk.cyan(`✓ ${toolName}`), chalk.red(String(res.error)));
     } else {
-      console.log(chalk.cyan(`✓ ${toolName}`), chalk.dim('skill loaded'));
+      const stack = Array.isArray(res?.stack) ? (res.stack as string[]) : null;
+      const suffix = stack && stack.length > 0 ? `stack: ${stack.join(' → ')}` : 'skill loaded';
+      const note = res?.duplicated ? ' (already active)' : '';
+      console.log(chalk.cyan(`✓ ${toolName}`), chalk.dim(suffix + note));
+    }
+    return;
+  }
+
+  // exit_skill: compact summary of the stack after popping
+  if (toolName === 'exit_skill') {
+    if (res?.error) {
+      console.log(chalk.cyan(`✓ ${toolName}`), chalk.red(String(res.error)));
+    } else {
+      const exited = res?.exited as string | undefined;
+      const current = res?.current as string | null | undefined;
+      const summary = current ? `exited "${exited}" → now "${current}"` : `exited "${exited}" (no skill active)`;
+      console.log(chalk.cyan(`✓ ${toolName}`), chalk.dim(summary));
     }
     return;
   }

@@ -22,6 +22,7 @@ interface SessionMeta {
   title: string;
   createdAt: string;
   updatedAt: string;
+  activeSkillNames?: string[];
 }
 
 interface MetaFileState {
@@ -66,12 +67,26 @@ export class SessionRepository {
       createdAt: String(raw.createdAt),
       updatedAt: String(raw.updatedAt),
     };
+    if (Array.isArray(raw.activeSkillNames)) {
+      meta.activeSkillNames = (raw.activeSkillNames as unknown[]).filter(
+        (v): v is string => typeof v === 'string',
+      );
+    }
     const legacyMessages = Array.isArray(raw.messages) ? (raw.messages as ModelMessage[]) : null;
     return { meta, legacyMessages };
   }
 
   private writeMetaFile(meta: SessionMeta): void {
-    writeFileSync(this.metaPath(meta.id), JSON.stringify(meta, null, 2) + '\n', 'utf-8');
+    const payload: Record<string, unknown> = {
+      id: meta.id,
+      title: meta.title,
+      createdAt: meta.createdAt,
+      updatedAt: meta.updatedAt,
+    };
+    if (meta.activeSkillNames && meta.activeSkillNames.length > 0) {
+      payload.activeSkillNames = meta.activeSkillNames;
+    }
+    writeFileSync(this.metaPath(meta.id), JSON.stringify(payload, null, 2) + '\n', 'utf-8');
   }
 
   private readJsonlMessages(id: string): ModelMessage[] {
@@ -118,7 +133,25 @@ export class SessionRepository {
     const state = this.readMetaFile(id);
     if (!state) return null;
     const messages = state.legacyMessages ?? this.readJsonlMessages(id);
-    return { ...state.meta, messages };
+    const { activeSkillNames, ...rest } = state.meta;
+    const session: Session = { ...rest, messages };
+    if (activeSkillNames && activeSkillNames.length > 0) {
+      session.activeSkillNames = activeSkillNames;
+    }
+    return session;
+  }
+
+  updateActiveSkills(id: string, names: readonly string[]): void {
+    const state = this.readMetaFile(id);
+    if (!state) return;
+    const updatedAt = new Date().toISOString();
+    const meta: SessionMeta = {
+      ...state.meta,
+      activeSkillNames: names.length > 0 ? [...names] : undefined,
+      updatedAt,
+    };
+    this.writeMetaFile(meta);
+    this.updateIndexTimestamp(id, updatedAt);
   }
 
   list(): Session[] {

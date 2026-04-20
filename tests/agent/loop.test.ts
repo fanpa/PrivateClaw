@@ -248,6 +248,33 @@ describe('runAgentTurn', () => {
     expect(sentMessages).toHaveLength(3);
   });
 
+  it('injects active skill stack into the system prompt', async () => {
+    const { streamText } = await import('ai');
+    (streamText as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', text: 'ok' };
+      })(),
+      response: Promise.resolve({ messages: [{ role: 'assistant', content: 'ok' }] }),
+    });
+
+    const { SkillStateManager } = await import('../../src/skills/state.js');
+    const manager = new SkillStateManager(5);
+    manager.push('jira-export', 'Skill workflow body.');
+
+    const messages: ModelMessage[] = [{ role: 'user', content: 'do it' }];
+    await runAgentTurn({
+      messages,
+      model: {} as any,
+      skillManager: manager,
+      systemPrompt: 'Base prompt.',
+    });
+
+    const sentSystem = (streamText as ReturnType<typeof vi.fn>).mock.calls[0][0].system as string;
+    expect(sentSystem).toContain('Base prompt.');
+    expect(sentSystem).toContain('ACTIVE SKILL: jira-export');
+    expect(sentSystem).toContain('Skill workflow body.');
+  });
+
   it('preserves full tool-result body in responseMessages even when context truncates', async () => {
     const { streamText } = await import('ai');
     const bigBody = 'x'.repeat(20000);

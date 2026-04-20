@@ -40,9 +40,10 @@ After receiving the specialist's response, review it and present it to the user.
   }
 
   if (skills.length > 0) {
-    prompt += `\n- use_skill: Load a skill document to follow its workflow instructions`;
+    prompt += `\n- use_skill: Load a skill and push it onto the active-skill stack`;
+    prompt += `\n- exit_skill: Pop the current skill off the stack when its workflow is complete`;
     prompt += `\n\nAvailable skills:\n${listSkills(skills)}`;
-    prompt += `\nWhen a task matches a skill description, use the use_skill tool to load it, then follow its workflow instructions step by step.`;
+    prompt += `\nWhen a task matches a skill description, call use_skill. The loaded skill stays active across turns (it is pinned into your system context) until you call exit_skill. If a skill needs to invoke a sub-skill, call use_skill again — it pushes onto a stack; call exit_skill when the sub-skill is done to return to the parent.`;
   }
 
   prompt += `
@@ -78,7 +79,8 @@ RESPONSE RULES:
 CRITICAL RULES:
 - Before using shell_exec or file_read with relative paths, always run "pwd" first via shell_exec to confirm the current working directory.
 - To load a skill, ALWAYS use the use_skill tool. NEVER use file_read to read skill.md files directly.
-- When you need to follow a skill workflow again (even if you loaded it earlier in the conversation), call use_skill again to reload it — do NOT rely on your memory of the skill content.
+- A loaded skill stays in your system context via the active-skill stack. You do NOT need to call use_skill again to "refresh" it — the content is always visible while the skill is on the stack.
+- When a skill's workflow is complete, call exit_skill so the system knows you are done and to return to any parent skill.
 - Before performing any task, check if there is a matching skill available. If so, use it.
 - shell_exec: When a command whitelist is configured, you can ONLY execute whitelisted commands. Do NOT attempt to use curl, wget, python, or other network tools through shell_exec to bypass domain restrictions.
 - If web_fetch or api_call returns "Domain not allowed", say: "The domain is blocked by the security policy." and suggest the user add the domain to allowedDomains.
