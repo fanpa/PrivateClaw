@@ -43,15 +43,24 @@ export interface BuiltinToolsOptions {
   skillManager?: SkillStateManager;
 }
 
-// Tools that skip pre-reflection (low-risk or meta tools)
+// Tools that skip pre-reflection (low-risk or meta tools).
+// Market discovery/install tools are included because pre-reflect's "is there
+// a matching skill already loaded?" check is nonsensical for tools whose
+// entire job is to *find* skills — it used to hallucinate fake skill names
+// and trap the LLM in a retry loop (issue #90).
 const SKIP_PRE_REFLECT = new Set([
   'use_skill', 'exit_skill', 'reload_config', 'sync_skills', 'file_read',
+  'search_online_skill', 'install_online_skill',
 ]);
 
 // Tools that skip approval prompts (meta/read-only tools that don't touch
 // user files, shell, or the network).
+// search_online_skill is read-only HTTP GET against the configured market repo;
+// install_online_skill is kept on the approval path because it writes to disk
+// and amends privateclaw.config.json.
 const SKIP_APPROVAL = new Set([
   'use_skill', 'exit_skill', 'reload_config', 'sync_skills',
+  'search_online_skill',
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
