@@ -77,7 +77,7 @@ LLM: → create_skill 호출
 
 ### Skill Market (온라인 스킬 저장소)
 
-원격 **GitHub 리포지토리**를 skill market으로 설정하면, 다른 사용자가 만든 스킬을 검색하고 설치할 수 있습니다. `skillMarketUrl`은 **GitHub 스타일 URL만 지원**합니다 — 공개 github.com 또는 GitHub Enterprise(GHE) 인스턴스. 임의 정적 파일 서버는 지원 대상이 아닙니다.
+원격 **GitHub 리포지토리**를 skill market으로 설정하면, 다른 사용자가 만든 스킬을 검색·설치·업데이트할 수 있습니다. `skillMarketUrl`은 **GitHub 스타일 URL만 지원**합니다 — 공개 github.com 또는 GitHub Enterprise(GHE) 인스턴스. 임의 정적 파일 서버는 지원 대상이 아닙니다.
 
 ```json
 {
@@ -86,9 +86,63 @@ LLM: → create_skill 호출
 }
 ```
 
-LLM에게 "스킬 시장에서 jira 관련 스킬 찾아줘"처럼 요청하면 `search_online_skill`로 검색하고, `install_online_skill`로 로컬에 내려받습니다. 설치 후 `/reload`하면 바로 사용 가능합니다.
+LLM에게 "스킬 시장에서 이메일 관련 스킬 찾아줘"처럼 요청하면 `search_online_skill`이 태그 기반으로 후보를 추리고, `install_online_skill`이 의존성까지 포함해 한 번에 내려받습니다. 설치 직후 config는 자동으로 reload되므로 사용자가 직접 `/reload`를 부르지 않아도 다음 턴부터 즉시 사용 가능합니다.
 
-**URL 해석 규칙** (자동 감지):
+#### `index.md` 포맷 (마켓 운영자가 관리)
+
+마켓 리포의 루트에 있는 `index.md`는 다음 5개 컬럼의 마크다운 테이블입니다. Name과 Description을 제외한 세 컬럼은 선택(비워두면 기본 동작)입니다.
+
+```markdown
+| Name | Description | Tags | Version | Dependencies |
+|------|-------------|------|---------|--------------|
+| email-sender    | Send transactional emails via SMTP | email, send, notify | 1.2.0 | template-engine, smtp-client |
+| template-engine | Mustache-style rendering            | template, render    | 0.9.0 |                              |
+| smtp-client     | SMTP transport layer                | smtp, transport     | 1.0.1 |                              |
+| jira-export     | Export Jira issues to CSV           | jira, ticket, export| 2.0.1 |                              |
+| shared-utility  | Multi-purpose helper (no tags)      |                     |       |                              |
+```
+
+- **Name** / **Description**: 필수
+- **Tags**: 쉼표 구분 lowercase. 검색 시 OR 매칭의 키. 빈 셀은 "태그 없음"으로 모든 검색에서 반환됨(universal)
+- **Version**: `major.minor.patch` 고정 포맷. 빈 셀은 "비교 불가 → 덮어쓰기 금지"
+- **Dependencies**: 쉼표 구분 스킬 이름. 설치 시 이 스킬들도 자동 해석/설치
+
+2컬럼 / 3컬럼 / 4컬럼의 구형 `index.md`도 계속 파싱됩니다 — 누락된 뒤쪽 컬럼은 각각 기본값(빈 태그/버전/의존성)으로 처리.
+
+#### 태그 기반 검색
+
+LLM은 사용자 의도에서 lowercase 태그를 추론해 `search_online_skill({tags: [...]})` 로 호출합니다. OR 매칭이라 태그 하나라도 일치하면 결과에 포함됩니다. 태그가 없는 universal 스킬은 모든 쿼리에서 반환됩니다.
+
+```
+"이메일 보내는 스킬 찾아줘" → tags: ["email", "send"]
+→ email-sender (email, send 매치), shared-utility (universal)
+```
+
+#### 버전 관리와 업데이트
+
+- 설치 시 원격 `index.md`의 `Version` 값이 **로컬 `privateclaw.config.json`의 `skills[].version`** 에 저장됩니다
+- 다시 설치 요청이 들어오면:
+  - 로컬 없음 → 설치
+  - 로컬 있음 + 원격 version > 로컬 version → **덮어쓰기** (사용자 approval 프롬프트 필수)
+  - 로컬 있음 + 원격 version ≤ 로컬 version → "up to date", 건드리지 않음
+  - 한쪽이라도 version 정보 누락 → 안전하게 skip
+- Pre-release 태그(`1.0.0-beta`)나 range(`>=1.0`)는 v1 스코프 외 — 순수 `major.minor.patch`만
+
+#### 의존성 자동 설치
+
+`Dependencies` 컬럼에 명시된 스킬은 DFS로 해석되어 **topological order**(deps 먼저, 대상 마지막)로 설치됩니다.
+
+- 이미 설치된 deps는 version 비교 후 스킵 또는 업데이트
+- **순환 의존성**(`A → B → A`)은 I/O 전에 감지되어 오류 반환 — 아무것도 설치되지 않음
+- **누락 의존성**(market index에 없음)도 사전 검증되어 반환 오류에 `Missing skill "ghost" (required by a)` 처럼 경로를 명시
+- 모든 cascade가 단일 `install_online_skill` 호출에 포함되므로 approval 프롬프트는 **한 번만** 표시. 결과 메시지에 `Installed: a v1.0.0, b v1.0.0 | Up-to-date (skipped): c v1.0.1` 형식으로 내역이 나옵니다
+
+#### 자동 reload & 디스크 기반 `use_skill`
+
+- 설치 성공 시 `install_online_skill`이 내부적으로 config reload를 트리거하여 LLM이 `reload_config`를 별도로 호출하지 않아도 다음 턴부터 신규 스킬이 system prompt에 노출됩니다
+- 같은 턴 안에서도 `use_skill`이 **디스크 기반 validation**(skills 디렉토리에 skill.md가 존재하는지)으로 동작하기 때문에, "설치 → 곧바로 사용" 시나리오도 한 턴 안에서 완결됩니다
+
+#### URL 해석 규칙 (자동 감지)
 
 | `skillMarketUrl` | 실제 raw 경로 |
 |--|--|
@@ -97,12 +151,12 @@ LLM에게 "스킬 시장에서 jira 관련 스킬 찾아줘"처럼 요청하면 
 
 `github.com` 호스트면 별도 raw 서브도메인(`raw.githubusercontent.com`)으로, 그 외 호스트에서 `{host}/{owner}/{repo}` 형식이면 GHE로 판단해 `/raw/` 서브패스로 요청합니다. GHE는 공개 github.com과 달리 raw 전용 서브도메인이 없어 같은 호스트에서 raw content를 제공합니다.
 
-**설정 옵션:**
+#### 설정 옵션
 
 - **`skillMarketUrl`** (선택): 스킬 마켓 리포지토리 URL. `github.com` 또는 GHE 호스트의 `{scheme}://{host}/{owner}/{repo}` 형태.
 - **`skillMarketBranch`** (기본값: `"main"`): 기본 브랜치. `master` 기반 오래된 리포나 특정 릴리즈 브랜치를 쓸 경우 명시.
 
-**Private 리포지토리 인증:**
+#### Private 리포지토리 인증
 
 private 리포는 `raw.githubusercontent.com`(공개 GitHub) 또는 GHE 호스트에 대해 Authorization 헤더가 필요합니다. `set_header` 툴이나 config의 `security.defaultHeaders`로 설정:
 
