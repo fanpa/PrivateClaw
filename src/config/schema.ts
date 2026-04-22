@@ -25,6 +25,7 @@ const SessionSchema = z.object({
 const SkillEntrySchema = z.object({
   name: z.string(),
   description: z.string(),
+  version: z.string().optional(),
 });
 
 const SpecialistSchema = z.object({

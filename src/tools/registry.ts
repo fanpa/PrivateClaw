@@ -116,8 +116,8 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
     [apiCall.name]: apiCall.tool,
   };
 
-  if (options.skills && options.skills.length > 0 && options.skillManager) {
-    const useSkill = createUseSkillTool(options.skills, options.skillsDir ?? './skills', options.skillManager);
+  if (options.skillManager) {
+    const useSkill = createUseSkillTool(options.skillsDir ?? './skills', options.skillManager);
     tools[useSkill.name] = useSkill.tool;
     const exitSkill = createExitSkillTool(options.skillManager);
     tools[exitSkill.name] = exitSkill.tool;
@@ -160,6 +160,7 @@ export function getBuiltinTools(options: BuiltinToolsOptions = {}): Record<strin
       skillsDir: options.skillsDir ?? './skills',
       configPath: options.configPath,
       fetchFn: marketFetch,
+      onReload: options.onReload,
     });
     tools[installOnlineSkill.name] = installOnlineSkill.tool;
   }

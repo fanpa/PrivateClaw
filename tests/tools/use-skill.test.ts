@@ -4,8 +4,8 @@ import { SkillStateManager } from '../../src/skills/state.js';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-function newTool(skills: { name: string; description: string }[], dir: string) {
-  return createUseSkillTool(skills, dir, new SkillStateManager(5));
+function newTool(dir: string, depth: number = 5) {
+  return createUseSkillTool(dir, new SkillStateManager(depth));
 }
 
 const TEST_SKILLS_DIR = join(import.meta.dirname, '__test_skills__');
@@ -23,60 +23,62 @@ afterEach(() => {
 });
 
 describe('createUseSkillTool', () => {
-  const skills = [{ name: 'my-skill', description: 'A test skill' }];
-
   it('has correct name', () => {
-    const tool = newTool(skills, TEST_SKILLS_DIR);
+    const tool = newTool(TEST_SKILLS_DIR);
     expect(tool.name).toBe('use_skill');
   });
 
-  it('loads a registered skill', async () => {
-    const tool = newTool(skills, TEST_SKILLS_DIR);
+  it('loads a skill present on disk', async () => {
+    const tool = newTool(TEST_SKILLS_DIR);
     const result = await tool.execute({ name: 'my-skill' });
     expect(result.content).toContain('# My Skill');
     expect(result.content).toContain('Do something useful');
   });
 
-  it('returns error for unregistered skill', async () => {
-    const tool = newTool(skills, TEST_SKILLS_DIR);
+  it('returns error for skill not installed locally', async () => {
+    const tool = newTool(TEST_SKILLS_DIR);
     const result = await tool.execute({ name: 'unknown' });
-    expect(result.error).toContain('not registered');
+    expect(result.error).toContain('not installed locally');
   });
 
-  it('returns error for missing skill file', async () => {
-    const skillsWithMissing = [{ name: 'ghost', description: 'Does not exist on disk' }];
-    const tool = newTool(skillsWithMissing, TEST_SKILLS_DIR);
-    const result = await tool.execute({ name: 'ghost' });
-    expect(result.error).toBeDefined();
-  });
-
-  it('includes available skills list in error for unregistered skill', async () => {
-    const tool = newTool(skills, TEST_SKILLS_DIR);
+  it('lists available skills in error message', async () => {
+    const tool = newTool(TEST_SKILLS_DIR);
     const result = await tool.execute({ name: 'wrong' });
     expect(result.error).toContain('my-skill');
   });
 
+  it('loads a skill that was written after the tool was created (disk-based validation)', async () => {
+    // Simulates install_online_skill writing a new skill during the same turn
+    // — use_skill must pick it up without rebuilding the tool.
+    const tool = newTool(TEST_SKILLS_DIR);
+    mkdirSync(join(TEST_SKILLS_DIR, 'fresh-skill'), { recursive: true });
+    writeFileSync(join(TEST_SKILLS_DIR, 'fresh-skill', 'skill.md'), '# Fresh\n');
+    const result = await tool.execute({ name: 'fresh-skill' });
+    expect(result.error).toBeUndefined();
+    expect(result.content).toContain('# Fresh');
+  });
+
   describe('tool object (AI SDK path)', () => {
     it('has inputSchema defined on tool object', () => {
-      const tool = newTool(skills, TEST_SKILLS_DIR);
+      const tool = newTool(TEST_SKILLS_DIR);
       expect(tool.tool.inputSchema).toBeDefined();
     });
 
     it('inputSchema parses valid input', () => {
-      const tool = newTool(skills, TEST_SKILLS_DIR);
+      const tool = newTool(TEST_SKILLS_DIR);
       const schema = tool.tool.inputSchema as import('zod').ZodSchema;
       const result = schema.parse({ name: 'my-skill' });
       expect(result.name).toBe('my-skill');
     });
 
     it('inputSchema rejects missing name', () => {
-      const tool = newTool(skills, TEST_SKILLS_DIR);
+      const tool = newTool(TEST_SKILLS_DIR);
       const schema = tool.tool.inputSchema as import('zod').ZodSchema;
       expect(() => schema.parse({})).toThrow();
     });
 
     it('tool.execute works via inputSchema parse (simulates AI SDK call)', async () => {
-      const tool = newTool(skills, TEST_SKILLS_DIR);
+      const tool = newTool(TEST_SKILLS_DIR);
       const schema = tool.tool.inputSchema as import('zod').ZodSchema;
       const parsedInput = schema.parse({ name: 'my-skill' });
       const result = await tool.tool.execute(parsedInput, { toolCallId: 'test', messages: [] } as never);
@@ -87,7 +89,7 @@ describe('createUseSkillTool', () => {
   describe('stack interaction', () => {
     it('pushes the loaded skill onto the manager', async () => {
       const manager = new SkillStateManager(5);
-      const tool = createUseSkillTool(skills, TEST_SKILLS_DIR, manager);
+      const tool = createUseSkillTool(TEST_SKILLS_DIR, manager);
       const result = await tool.execute({ name: 'my-skill' });
       expect(result.stack).toEqual(['my-skill']);
       expect(manager.names()).toEqual(['my-skill']);
@@ -95,7 +97,7 @@ describe('createUseSkillTool', () => {
 
     it('second load of the same skill is a no-op and flags duplicated', async () => {
       const manager = new SkillStateManager(5);
-      const tool = createUseSkillTool(skills, TEST_SKILLS_DIR, manager);
+      const tool = createUseSkillTool(TEST_SKILLS_DIR, manager);
       await tool.execute({ name: 'my-skill' });
       const second = await tool.execute({ name: 'my-skill' });
       expect(second.duplicated).toBe(true);
@@ -105,9 +107,8 @@ describe('createUseSkillTool', () => {
     it('rejects when depth limit is reached', async () => {
       mkdirSync(join(TEST_SKILLS_DIR, 'other'), { recursive: true });
       writeFileSync(join(TEST_SKILLS_DIR, 'other', 'skill.md'), '# Other');
-      const multi = [...skills, { name: 'other', description: 'other' }];
       const manager = new SkillStateManager(1);
-      const tool = createUseSkillTool(multi, TEST_SKILLS_DIR, manager);
+      const tool = createUseSkillTool(TEST_SKILLS_DIR, manager);
       await tool.execute({ name: 'my-skill' });
       const second = await tool.execute({ name: 'other' });
       expect(second.error).toContain('depth limit');
