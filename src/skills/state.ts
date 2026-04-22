@@ -110,7 +110,7 @@ export function buildActiveSkillSystemText(stack: readonly ActiveSkillFrame[]): 
     '',
     '',
     header,
-    parentLine + `Follow this skill's workflow step by step. When this skill's task is complete, call exit_skill to ${exitTarget}.`,
+    parentLine + `Follow this skill's workflow step by step. When ALL steps are done and the user's request is fulfilled, you MUST call exit_skill to ${exitTarget}. Do not skip this — leaving a skill active blocks the next skill from loading cleanly.`,
     '',
     top.content,
     '═══ END SKILL ═══',
