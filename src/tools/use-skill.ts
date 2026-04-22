@@ -8,7 +8,6 @@ interface UseSkillResult {
   content?: string;
   stack?: string[];
   duplicated?: boolean;
-  autoExited?: string[];
   error?: string;
 }
 
@@ -27,7 +26,7 @@ export function createUseSkillTool(
     name: 'use_skill' as const,
     description: 'Load a skill document and push it onto the active-skill stack.',
     toolDescription:
-      'Load a skill document and make it the active skill. The skill stays active across turns until you call exit_skill. If a different skill is currently active, it is automatically exited first so you start fresh. Calling use_skill with the already-active skill is a no-op.',
+      'Load a skill document and make it the active skill. The skill stays active across turns until you call exit_skill. Nested loads are allowed up to the configured depth limit; calling use_skill with an already-active skill is a no-op.',
     parameters,
     execute: async ({ name }): Promise<UseSkillResult> => {
       if (!registeredNames.has(name)) {
@@ -46,18 +45,6 @@ export function createUseSkillTool(
         };
       }
 
-      // Auto-exit any active skills when switching to a different skill.
-      // This recovers from the common case where the LLM forgets to call
-      // exit_skill after completing a workflow before starting a new one.
-      const autoExited: string[] = [];
-      const currentTop = manager.top();
-      if (currentTop && currentTop.name !== name) {
-        while (manager.depth() > 0) {
-          const popped = manager.pop();
-          if (popped) autoExited.push(popped.name);
-        }
-      }
-
       const pushed = manager.push(name, content);
       if (!pushed.ok) {
         return { error: pushed.error };
@@ -67,7 +54,6 @@ export function createUseSkillTool(
         content,
         stack: manager.names(),
         duplicated: pushed.duplicated,
-        ...(autoExited.length > 0 ? { autoExited } : {}),
       };
     },
   });

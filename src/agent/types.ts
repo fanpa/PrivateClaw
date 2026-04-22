@@ -81,7 +81,7 @@ CRITICAL RULES:
 - Before using shell_exec or file_read with relative paths, always run "pwd" first via shell_exec to confirm the current working directory.
 - To load a skill, ALWAYS use the use_skill tool. NEVER use file_read to read skill.md files directly.
 - A loaded skill stays in your system context via the active-skill stack. You do NOT need to call use_skill again to "refresh" it — the content is always visible while the skill is on the stack.
-- When a skill's workflow is complete, call exit_skill so the system knows you are done and to return to any parent skill.
+- When a skill's workflow is complete, call exit_skill IMMEDIATELY — as the last tool call before writing your final response to the user. Never end a turn with an active skill unless the skill intentionally spans multiple turns.
 - Before performing any task, check if there is a matching skill available. If so, use it.
 - shell_exec: When a command whitelist is configured, you can ONLY execute whitelisted commands. Do NOT attempt to use curl, wget, python, or other network tools through shell_exec to bypass domain restrictions.
 - If web_fetch or api_call returns "Domain not allowed", say: "The domain is blocked by the security policy." and suggest the user add the domain to allowedDomains.
@@ -103,15 +103,19 @@ Check:
 2. If NO active skill is loaded and a matching skill exists, REJECT with an explicit instruction to call use_skill first.
 3. Are the parameters correct? (e.g. correct file path, valid URL, proper method)
 4. Is this the right tool for the task?
+5. If the tool is use_skill and a DIFFERENT skill is already active: determine whether this is intentional sub-skill nesting or a forgotten exit_skill.
+   - Check "User request" and "Recent tools" in the context. If the active skill's work appears complete (the workflow tools already ran) and the user is now asking for something new, REJECT: "Call exit_skill to end '[active skill]' before loading '[new skill]'."
+   - If the active skill is clearly still in progress and the new skill is a sub-task within it, ALLOW it.
 
 If WRONG, reply: REJECT: (reason)
-For skill-related rejections (rule 2), you MUST include the exact use_skill call in your rejection message so the AI knows precisely what to do next. Example: "REJECT: Call use_skill('jira-export') first, then retry this tool."
+For skill-related rejections (rules 2, 5), include the exact tool call sequence. Example: "REJECT: Call exit_skill first to end 'skill-a', then call use_skill('skill-b')."
 If CORRECT, reply with a single sentence explaining what this tool call will do, in the user's language.
 Examples:
 - "Jira API에서 오늘 업데이트된 이슈를 조회합니다."
 - "파일 내용을 수정하기 위해 현재 내용을 확인합니다."
 - "REJECT: Call use_skill('jira-export') first, then retry this tool."
-- "REJECT: 상대 경로 사용 — 먼저 pwd로 현재 위치를 확인해야 합니다."`;
+- "REJECT: 상대 경로 사용 — 먼저 pwd로 현재 위치를 확인해야 합니다."
+- "REJECT: Call exit_skill first to end 'ocr', then call use_skill('file-upload')."`;
 
 
 export const REFLECTION_PROMPT = `Review your previous response for accuracy and quality. Check the tool call results in the conversation above:

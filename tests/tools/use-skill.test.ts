@@ -102,35 +102,15 @@ describe('createUseSkillTool', () => {
       expect(manager.names()).toEqual(['my-skill']);
     });
 
-    it('auto-exits active skill when switching to a different skill', async () => {
+    it('rejects when depth limit is reached', async () => {
       mkdirSync(join(TEST_SKILLS_DIR, 'other'), { recursive: true });
       writeFileSync(join(TEST_SKILLS_DIR, 'other', 'skill.md'), '# Other');
       const multi = [...skills, { name: 'other', description: 'other' }];
-      const manager = new SkillStateManager(5);
+      const manager = new SkillStateManager(1);
       const tool = createUseSkillTool(multi, TEST_SKILLS_DIR, manager);
       await tool.execute({ name: 'my-skill' });
       const second = await tool.execute({ name: 'other' });
-      expect(second.error).toBeUndefined();
-      expect(second.autoExited).toEqual(['my-skill']);
-      expect(second.stack).toEqual(['other']);
-      expect(manager.names()).toEqual(['other']);
-    });
-
-    it('auto-exits entire stack when switching to a different skill', async () => {
-      mkdirSync(join(TEST_SKILLS_DIR, 'sub'), { recursive: true });
-      writeFileSync(join(TEST_SKILLS_DIR, 'sub', 'skill.md'), '# Sub');
-      mkdirSync(join(TEST_SKILLS_DIR, 'next'), { recursive: true });
-      writeFileSync(join(TEST_SKILLS_DIR, 'next', 'skill.md'), '# Next');
-      const multi = [...skills, { name: 'sub', description: 'sub' }, { name: 'next', description: 'next' }];
-      const manager = new SkillStateManager(5);
-      // Manually build a stack of two skills to simulate nested state
-      manager.push('my-skill', '# My Skill');
-      manager.push('sub', '# Sub');
-      const tool = createUseSkillTool(multi, TEST_SKILLS_DIR, manager);
-      const result = await tool.execute({ name: 'next' });
-      expect(result.error).toBeUndefined();
-      expect(result.autoExited).toEqual(['sub', 'my-skill']);
-      expect(result.stack).toEqual(['next']);
+      expect(second.error).toContain('depth limit');
     });
   });
 });
